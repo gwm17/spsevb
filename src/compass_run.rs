@@ -5,12 +5,14 @@ use std::collections::HashMap;
 use tar::Archive;
 use flate2::read::GzDecoder;
 use polars::prelude::*;
+use log::{info};
 
 use crate::compass_file::{CompassRunError, CompassFile};
 use crate::event_builder::EventBuilder;
 use crate::channel_map::{ChannelMap};
 use crate::sps_data::{SPSData, SPSDataField};
 
+#[derive(Debug)]
 pub struct RunParams {
     pub run_archive_path: PathBuf,
     pub unpack_dir_path: PathBuf,
@@ -45,9 +47,12 @@ pub fn process_run(params: &RunParams) -> Result<(), CompassRunError> {
     decompressed_archive.unpack(&params.unpack_dir_path)?;
 
     let mut files: Vec<CompassFile> = vec![];
-    
+    let mut total_count: u64 = 0;    
     for item in params.unpack_dir_path.read_dir()? {
-        files.push(CompassFile::new(&item?.path())?)
+        files.push(CompassFile::new(&item?.path())?);
+        files.last_mut().unwrap().set_hit_used();
+        files.last_mut().unwrap().get_top_hit()?;
+        total_count += files.last().unwrap().get_number_of_hits();
     }
 
     let mut evb = EventBuilder::new(&params.coincidence_window);
@@ -55,6 +60,12 @@ pub fn process_run(params: &RunParams) -> Result<(), CompassRunError> {
 
     let mut earliest_file_index: Option<usize>;
     let mut analyzed_data: Vec<SPSData> = vec![];
+
+    let mut count: u64 = 0;
+    let mut flush_count: u64 = 0;
+    let flush_percent = 0.1;
+    let flush_val: u64 = ((total_count as f64) * flush_percent) as u64;
+
     loop {
 
         earliest_file_index = Option::None;
@@ -90,6 +101,13 @@ pub fn process_run(params: &RunParams) -> Result<(), CompassRunError> {
             if !data.is_default() {
                 analyzed_data.push(data);
             }
+        }
+
+        count += 1;
+        if count == flush_val {
+            flush_count += 1;
+            count = 0;
+            info!("Percent of data processed: {}%", (flush_count as f64 * flush_percent * 100.0) as i32);
         }
     }
 

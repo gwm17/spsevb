@@ -3,8 +3,8 @@ use rand::Rng;
 bitflags! {
     pub struct CompassDataType: u16 {
         const ENERGY = 0x0001;
-        const ENERGY_SHORT = 0x0002;
-        const ENERGY_CALIBRATED = 0x0004;
+        const ENERGY_SHORT = 0x0004;
+        const ENERGY_CALIBRATED = 0x0002;
         const WAVES = 0x0008;
         const ALL = Self::ENERGY.bits() | Self::ENERGY_SHORT.bits() | Self::ENERGY_CALIBRATED.bits() | Self::WAVES.bits();
         const NONE = 0x0000;

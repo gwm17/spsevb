@@ -131,7 +131,7 @@ impl CompassFile {
                     std::io::ErrorKind::UnexpectedEof => { self.is_eof = true; CompassData::invalid() },
                     _ => return Err(CompassRunError::FileError(e))
                 }
-                Ok(data) => data,
+                Ok(data) => { self.is_used = false; data},
                 Err(x) => return Err(x)
             }
         }
@@ -170,5 +170,9 @@ impl CompassFile {
 
     pub fn set_hit_used(&mut self) {
         self.is_used = true;
+    }
+
+    pub fn get_number_of_hits(&self) -> u64 {
+        self.size_bytes / (self.data_size_bytes as u64)
     }
 }
