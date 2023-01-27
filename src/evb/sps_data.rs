@@ -1,6 +1,6 @@
 
-use crate::compass_data::{CompassData};
-use crate::channel_map::{ChannelMap, SPSChannelType};
+use super::compass_data::{CompassData};
+use super::channel_map::{ChannelMap, SPSChannelType};
 
 use std::collections::HashMap;
 use std::hash::Hash;
@@ -137,18 +137,19 @@ pub struct SPSData {
     pub fields: HashMap<SPSDataField, f64>
 }
 
-impl SPSData {
-
-    //Each field is a tuple of (energy, energy_short, time, field_type)
-    pub fn defalut() -> SPSData {
+impl Default for SPSData {
+    fn default() -> Self {
         let fields = SPSDataField::get_field_vec();
         let mut data = SPSData { fields: HashMap::new() };
         fields.into_iter().for_each(|f| { data.fields.insert(f, INVALID_VALUE); });
         return data;
     }
+}
+
+impl SPSData {
 
     pub fn new(event: Vec<CompassData>, map: &ChannelMap) -> SPSData {
-        let mut data = SPSData::defalut();
+        let mut data = SPSData::default();
 
         let mut dfl_time = INVALID_VALUE;
         let mut dfr_time = INVALID_VALUE;

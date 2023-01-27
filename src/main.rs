@@ -1,4 +1,3 @@
-use crate::compass_run::{RunParams, process_run};
 
 #[macro_use]
 extern crate bitflags;
@@ -10,15 +9,11 @@ extern crate polars;
 extern crate log;
 extern crate simplelog;
 
-mod compass_data;
-mod compass_file;
-mod compass_run;
-mod event_builder;
-mod sps_data;
-mod channel_map;
+mod evb;
 
 use std::path::PathBuf;
 use log::{info, error};
+use crate::evb::compass_run::{RunParams, process_run};
 
 fn main() {
     simplelog::TermLogger::init(simplelog::LevelFilter::Trace, 

@@ -5,7 +5,7 @@ use std::fs::File;
 use std::path::Path;
 use std::num::ParseIntError;
 
-use crate::compass_data::generate_board_channel_uuid;
+use super::compass_data::generate_board_channel_uuid;
 
 //Define channel map keywords associated with memory locations
 //Must be a keyword associated with EACH SPSChannelType that can be present in a channel map
@@ -89,6 +89,21 @@ impl From<ParseIntError> for ChannelMapError {
     }
 }
 
+impl std::fmt::Display for ChannelMapError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ChannelMapError::IOError(x) => write!(f, "Channel map had an error with the input file: {}", x),
+            ChannelMapError::ParseError(x) => write!(f, "Channel map had an error parsing the channel map file: {}", x),
+            ChannelMapError::UnidentifiedChannelError => write!(f, "Channel map found an unidentified field in the channel map file")
+        }
+    }
+}
+
+impl std::error::Error for ChannelMapError {
+
+}
+
+#[derive(Debug)]
 pub struct ChannelMap {
     map: HashMap<u32, SPSChannelType>
 }

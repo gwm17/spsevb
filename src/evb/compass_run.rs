@@ -7,10 +7,10 @@ use flate2::read::GzDecoder;
 use polars::prelude::*;
 use log::{info};
 
-use crate::compass_file::{CompassRunError, CompassFile};
-use crate::event_builder::EventBuilder;
-use crate::channel_map::{ChannelMap};
-use crate::sps_data::{SPSData, SPSDataField};
+use super::compass_file::{CompassRunError, CompassFile};
+use super::event_builder::EventBuilder;
+use super::channel_map::{ChannelMap};
+use super::sps_data::{SPSData, SPSDataField};
 
 #[derive(Debug)]
 pub struct RunParams {
@@ -72,7 +72,7 @@ pub fn process_run(params: &RunParams) -> Result<(), CompassRunError> {
         for i in 0..files.len() {
             if !files[i].is_eof() {
                 let hit = files[i].get_top_hit()?;
-                if hit.is_invalid() { continue; }
+                if hit.is_default() { continue; }
 
                 earliest_file_index = match earliest_file_index {
                     None => Some(i),

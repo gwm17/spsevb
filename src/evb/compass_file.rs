@@ -1,10 +1,11 @@
+use std::fmt::Display;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::path;
-
-use crate::compass_data::{CompassDataType, RawCompassData, CompassData};
-use crate::channel_map::{ChannelMapError};
+use std::error::Error;
+use super::compass_data::{CompassDataType, RawCompassData, CompassData};
+use super::channel_map::{ChannelMapError};
 
 
 use flate2::DecompressError;
@@ -19,11 +20,9 @@ pub enum CompassRunError {
     CompressorError(DecompressError),
     WavesError,
     FileError(std::io::Error),
-    EofError,
     ParserError,
     ChannelError(ChannelMapError),
-    DataFrameError(PolarsError),
-    NoError
+    DataFrameError(PolarsError)
 }
 
 impl From<std::io::Error> for CompassRunError {
@@ -50,6 +49,23 @@ impl From<PolarsError> for CompassRunError {
     }
 }
 
+impl Display for CompassRunError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CompassRunError::CompressorError(x) => write!(f, "Run had a decompression error: {}", x),
+            CompassRunError::WavesError => write!(f, "Run found a file with waveform data, which is not supported!"),
+            CompassRunError::FileError(x) => write!(f, "Run had a file I/O error: {}", x),
+            CompassRunError::ParserError => write!(f, "Run had an error parsing the data from files"),
+            CompassRunError::ChannelError(x) => write!(f, "Run had an error occur with the channel map: {}", x),
+            CompassRunError::DataFrameError(x) => write!(f, "Run had an error using polars: {}", x)
+        }
+    }
+}
+
+impl Error for CompassRunError {
+
+}
+
 fn parse_u16(buffer: &[u8]) -> Result<(&[u8], u16), CompassRunError> {
     match le_u16::<&[u8], nom::error::Error<&[u8]>>(buffer) {
         Err(_x) => Err(CompassRunError::ParserError),
@@ -71,10 +87,10 @@ fn parse_u64(buffer: &[u8]) -> Result<(&[u8], u64), CompassRunError> {
     }
 }
 
+#[derive(Debug)]
 pub struct CompassFile {
     file_handle: BufReader<File>,
     size_bytes: u64,
-    buffer_size_bytes: usize,
     data_type: CompassDataType,
     data_size_bytes: usize,
     current_hit: CompassData,
@@ -114,10 +130,9 @@ impl CompassFile {
         return Ok(CompassFile {
             file_handle: BufReader::with_capacity(datasize * BUFFER_SIZE_HITS, file),
             size_bytes: total_size,
-            buffer_size_bytes: datasize * BUFFER_SIZE_HITS,
             data_type: datatype,
             data_size_bytes: datasize,
-            current_hit: CompassData::invalid(),
+            current_hit: CompassData::default(),
             is_used: false,
             is_eof: false
         });
@@ -128,7 +143,7 @@ impl CompassFile {
         if self.is_used {
             self.current_hit = match self.parse_top_hit() {
                 Err(CompassRunError::FileError(e)) => match e.kind() {
-                    std::io::ErrorKind::UnexpectedEof => { self.is_eof = true; CompassData::invalid() },
+                    std::io::ErrorKind::UnexpectedEof => { self.is_eof = true; CompassData::default() },
                     _ => return Err(CompassRunError::FileError(e))
                 }
                 Ok(data) => { self.is_used = false; data},

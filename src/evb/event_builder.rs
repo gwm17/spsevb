@@ -1,4 +1,4 @@
-use crate::compass_data::CompassData;
+use super::compass_data::CompassData;
 
 #[derive(Debug)]
 pub struct EventBuilder {

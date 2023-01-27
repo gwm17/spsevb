@@ -11,7 +11,7 @@ bitflags! {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct RawCompassData {
     pub board: u16,
     pub channel: u16,
@@ -27,6 +27,7 @@ pub const fn generate_board_channel_uuid(board: &u32, channel: &u32) -> u32 {
     if b > c { b * b + b + c } else { c * c + b }
 }
 
+#[allow(dead_code)]
 pub fn decompose_uuid_to_board_channel(uuid: &u32) -> (u32, u32) {
     let uuid_sqrt = (*uuid as f64).sqrt().floor() as u32;
     let test = uuid - uuid_sqrt * uuid_sqrt;
@@ -58,11 +59,7 @@ impl CompassData {
         }
     }
 
-    pub fn invalid() -> CompassData {
-        CompassData{ uuid: 0, energy: 0.0, energy_short: 0.0, timestamp: 0.0}
-    }
-
-    pub fn is_invalid(&self) -> bool {
+    pub fn is_default(&self) -> bool {
         if self.timestamp == 0.0 {
             return true;
         } else {
@@ -70,7 +67,14 @@ impl CompassData {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_board_channel(&self) -> (u32, u32) {
         return decompose_uuid_to_board_channel(&self.uuid);
+    }
+}
+
+impl Default for CompassData {
+    fn default() -> Self {
+        CompassData { uuid: 0, energy: 0.0, energy_short: 0.0, timestamp: 0.0 }
     }
 }
