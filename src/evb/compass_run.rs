@@ -1,16 +1,17 @@
+use std::collections::HashMap;
 use std::fs::File;
 use std::path::PathBuf;
-use std::collections::HashMap;
 
-use tar::Archive;
 use flate2::read::GzDecoder;
 use polars::prelude::*;
-use log::{info};
+use std::sync::{Mutex, Arc};
+use tar::Archive;
 
-use super::compass_file::{CompassRunError, CompassFile};
+use super::channel_map::ChannelMap;
+use super::compass_file::CompassFile;
 use super::event_builder::EventBuilder;
-use super::channel_map::{ChannelMap};
 use super::sps_data::{SPSData, SPSDataField};
+use super::error::EVBError;
 
 #[derive(Debug)]
 pub struct RunParams {
@@ -18,36 +19,45 @@ pub struct RunParams {
     pub unpack_dir_path: PathBuf,
     pub output_file_path: PathBuf,
     pub chanmap_file_path: PathBuf,
-    pub coincidence_window: f64
+    pub coincidence_window: f64,
 }
 
-pub fn make_dataframe(data: Vec<SPSData>) -> Result<DataFrame, PolarsError> {
-
+fn make_dataframe(data: Vec<SPSData>) -> Result<DataFrame, PolarsError> {
     let fields = SPSDataField::get_field_vec();
-    let mut column_map: HashMap<SPSDataField, PrimitiveChunkedBuilder<Float64Type>> = fields.into_iter()
-                                                                          .map(|f| -> (SPSDataField, PrimitiveChunkedBuilder<Float64Type>) { 
-                                                                               (f.clone(), PrimitiveChunkedBuilder::<Float64Type>::new(&f.get_column_name(), data.len()))
-                                                                              })
-                                                                          .collect();
+    let mut column_map: HashMap<SPSDataField, PrimitiveChunkedBuilder<Float64Type>> = fields
+        .into_iter()
+        .map(
+            |f| -> (SPSDataField, PrimitiveChunkedBuilder<Float64Type>) {
+                (
+                    f.clone(),
+                    PrimitiveChunkedBuilder::<Float64Type>::new(&f.get_column_name(), data.len()),
+                )
+            },
+        )
+        .collect();
 
     for datum in data {
-        datum.fields()
-             .into_iter()
-             .for_each(|f| { column_map.get_mut(f.0).unwrap().append_value(*f.1) })
+        datum
+            .fields()
+            .into_iter()
+            .for_each(|f| column_map.get_mut(f.0).unwrap().append_value(*f.1))
     }
 
-    let columns: Vec<Series> = column_map.into_iter().map(|f| -> Series { f.1.finish().into() }).collect();
+    let columns: Vec<Series> = column_map
+        .into_iter()
+        .map(|f| -> Series { f.1.finish().into() })
+        .collect();
 
     DataFrame::new(columns)
 }
 
-pub fn process_run(params: &RunParams) -> Result<(), CompassRunError> {
+pub fn process_run(params: RunParams, progress: Arc<Mutex<f32>>) -> Result<(), EVBError> {
     let archive_file = File::open(&params.run_archive_path)?;
     let mut decompressed_archive = Archive::new(GzDecoder::new(archive_file));
     decompressed_archive.unpack(&params.unpack_dir_path)?;
 
     let mut files: Vec<CompassFile> = vec![];
-    let mut total_count: u64 = 0;    
+    let mut total_count: u64 = 0;
     for item in params.unpack_dir_path.read_dir()? {
         files.push(CompassFile::new(&item?.path())?);
         files.last_mut().unwrap().set_hit_used();
@@ -67,12 +77,13 @@ pub fn process_run(params: &RunParams) -> Result<(), CompassRunError> {
     let flush_val: u64 = ((total_count as f64) * flush_percent) as u64;
 
     loop {
-
         earliest_file_index = Option::None;
         for i in 0..files.len() {
             if !files[i].is_eof() {
                 let hit = files[i].get_top_hit()?;
-                if hit.is_default() { continue; }
+                if hit.is_default() {
+                    continue;
+                }
 
                 earliest_file_index = match earliest_file_index {
                     None => Some(i),
@@ -107,13 +118,17 @@ pub fn process_run(params: &RunParams) -> Result<(), CompassRunError> {
         if count == flush_val {
             flush_count += 1;
             count = 0;
-            info!("Percent of data processed: {}%", (flush_count as f64 * flush_percent * 100.0) as i32);
+
+            match progress.lock() {
+                Ok(mut prog) => *prog  = (flush_count as f64 * flush_percent) as f32,
+                Err(_) => return Err(EVBError::SyncError)
+            };
         }
     }
 
     let mut df = make_dataframe(analyzed_data)?;
     let mut output_file = File::create(&params.output_file_path)?;
     ParquetWriter::new(&mut output_file).finish(&mut df)?;
-    
+
     return Ok(());
 }

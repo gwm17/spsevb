@@ -1,88 +1,31 @@
-use std::fmt::Display;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::path;
-use std::error::Error;
 use super::compass_data::{CompassDataType, RawCompassData, CompassData};
-use super::channel_map::{ChannelMapError};
-
-
-use flate2::DecompressError;
-use polars::error::PolarsError;
+use super::error::EVBError;
 
 use nom::number::complete::*;
 
 const BUFFER_SIZE_HITS: usize = 24000; // Size in Compass hits of the buffer for each binary data file
 
-#[derive(Debug)]
-pub enum CompassRunError {
-    CompressorError(DecompressError),
-    WavesError,
-    FileError(std::io::Error),
-    ParserError,
-    ChannelError(ChannelMapError),
-    DataFrameError(PolarsError)
-}
-
-impl From<std::io::Error> for CompassRunError {
-    fn from(err: std::io::Error) -> CompassRunError {
-        return CompassRunError::FileError(err)
-    }
-}
-
-impl From<DecompressError> for CompassRunError {
-    fn from(err: DecompressError) -> CompassRunError {
-        CompassRunError::CompressorError(err)
-    }
-}
-
-impl From<ChannelMapError> for CompassRunError {
-    fn from(err: ChannelMapError) -> CompassRunError {
-        CompassRunError::ChannelError(err)
-    }
-}
-
-impl From<PolarsError> for CompassRunError {
-    fn from(err: PolarsError) -> CompassRunError {
-        CompassRunError::DataFrameError(err)
-    }
-}
-
-impl Display for CompassRunError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            CompassRunError::CompressorError(x) => write!(f, "Run had a decompression error: {}", x),
-            CompassRunError::WavesError => write!(f, "Run found a file with waveform data, which is not supported!"),
-            CompassRunError::FileError(x) => write!(f, "Run had a file I/O error: {}", x),
-            CompassRunError::ParserError => write!(f, "Run had an error parsing the data from files"),
-            CompassRunError::ChannelError(x) => write!(f, "Run had an error occur with the channel map: {}", x),
-            CompassRunError::DataFrameError(x) => write!(f, "Run had an error using polars: {}", x)
-        }
-    }
-}
-
-impl Error for CompassRunError {
-
-}
-
-fn parse_u16(buffer: &[u8]) -> Result<(&[u8], u16), CompassRunError> {
+fn parse_u16(buffer: &[u8]) -> Result<(&[u8], u16), EVBError> {
     match le_u16::<&[u8], nom::error::Error<&[u8]>>(buffer) {
-        Err(_x) => Err(CompassRunError::ParserError),
+        Err(_x) => Err(EVBError::ParserError),
         Ok(x) => Ok(x)
     }
 }
 
-fn parse_u32(buffer: &[u8]) -> Result<(&[u8], u32), CompassRunError> {
+fn parse_u32(buffer: &[u8]) -> Result<(&[u8], u32), EVBError> {
     match le_u32::<&[u8], nom::error::Error<&[u8]>>(buffer) {
-        Err(_x) => Err(CompassRunError::ParserError),
+        Err(_x) => Err(EVBError::ParserError),
         Ok(x) => Ok(x)
     }
 }
 
-fn parse_u64(buffer: &[u8]) -> Result<(&[u8], u64), CompassRunError> {
+fn parse_u64(buffer: &[u8]) -> Result<(&[u8], u64), EVBError> {
     match le_u64::<&[u8], nom::error::Error<&[u8]>>(buffer) {
-        Err(_x) => Err(CompassRunError::ParserError),
+        Err(_x) => Err(EVBError::ParserError),
         Ok(x) => Ok(x)
     }
 }
@@ -99,7 +42,7 @@ pub struct CompassFile {
 }
 
 impl CompassFile {
-    pub fn new(path: &path::PathBuf) -> Result<CompassFile, CompassRunError> {
+    pub fn new(path: &path::PathBuf) -> Result<CompassFile, EVBError> {
         let mut file: File = File::open(path)?;
         let total_size = file.metadata()?.len();
 
@@ -123,7 +66,7 @@ impl CompassFile {
             datasize += 8;
         }
         if header_word & CompassDataType::WAVES.bits() != 0 {
-            return Err(CompassRunError::WavesError);
+            return Err(EVBError::WavesError);
         }
         
 
@@ -139,12 +82,12 @@ impl CompassFile {
 
     }
 
-    pub fn get_top_hit(&mut self) -> Result<&CompassData, CompassRunError> {
+    pub fn get_top_hit(&mut self) -> Result<&CompassData, EVBError> {
         if self.is_used {
             self.current_hit = match self.parse_top_hit() {
-                Err(CompassRunError::FileError(e)) => match e.kind() {
+                Err(EVBError::FileError(e)) => match e.kind() {
                     std::io::ErrorKind::UnexpectedEof => { self.is_eof = true; CompassData::default() },
-                    _ => return Err(CompassRunError::FileError(e))
+                    _ => return Err(EVBError::FileError(e))
                 }
                 Ok(data) => { self.is_used = false; data},
                 Err(x) => return Err(x)
@@ -154,7 +97,7 @@ impl CompassFile {
         return Ok(&self.current_hit);
     }
 
-    fn parse_top_hit(&mut self) -> Result<CompassData, CompassRunError> {
+    fn parse_top_hit(&mut self) -> Result<CompassData, EVBError> {
 
         let mut raw_data = RawCompassData{board: 0, channel: 0, timestamp: 0, energy: 0, energy_calibrated: 0, energy_short: 0};
 
