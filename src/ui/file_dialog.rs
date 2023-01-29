@@ -2,6 +2,7 @@ use eframe::egui;
 use std::path;
 use std::fs;
 use std::env;
+use std::thread::current;
 
 #[derive(Debug, Clone)]
 enum FDType {
@@ -50,7 +51,8 @@ impl FileDialog {
 
     fn show_open_file(&mut self, ctx: &egui::Context) -> bool {
         let mut selected: bool = false;
-        egui::Window::new("Open File").open(&mut self.is_active.clone()).show(ctx, |ui| {
+        let mut current_state = self.is_active.clone();
+        egui::Window::new("Open File").open(&mut current_state).show(ctx, |ui| {
             ui.label("Open that file!");
             ui.horizontal(|ui| {
                 if ui.button("Cancel").clicked() {
@@ -63,12 +65,14 @@ impl FileDialog {
                 }
             });
         });
+        self.is_active &= current_state;
         return selected;
     }
 
     fn show_open_directory(&mut self, ctx: &egui::Context) -> bool {
         let mut selected: bool = false;
-        egui::Window::new("Open Directory").open(&mut self.is_active.clone()).show(ctx, |ui| {
+        let mut current_state = self.is_active.clone();
+        egui::Window::new("Open Directory").open(&mut current_state).show(ctx, |ui| {
             ui.label("Open that directory!");
             ui.horizontal(|ui| {
                 if ui.button("Cancel").clicked() {
@@ -81,13 +85,15 @@ impl FileDialog {
                 }
             });
         });
+        self.is_active &= current_state;
         return selected;
     }
 
     fn show_save_file(&mut self, ctx: &egui::Context) -> bool {
         let mut selected: bool = false;
-        egui::Window::new("Open Directory").open(&mut self.is_active.clone()).show(ctx, |ui| {
-            ui.label("Open that directory!");
+        let mut current_state = self.is_active.clone();
+        egui::Window::new("Save File").open(&mut current_state).show(ctx, |ui| {
+            ui.label("Save that file!");
             ui.horizontal(|ui| {
                 if ui.button("Cancel").clicked() {
                     selected = false;
@@ -99,6 +105,7 @@ impl FileDialog {
                 }
             });
         });
+        self.is_active &= current_state;
         return selected;
     }
 }
