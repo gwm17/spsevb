@@ -6,9 +6,9 @@ use std::thread::JoinHandle;
 
 use std::path::PathBuf;
 
+use super::file_dialog::FileDialog;
 use crate::evb::compass_run::{process_run, RunParams};
 use crate::evb::error::EVBError;
-use super::file_dialog::FileDialog;
 
 #[derive(Debug, Default)]
 pub struct EVBApp {
@@ -16,7 +16,7 @@ pub struct EVBApp {
     workspace: String,
     channel_map: String,
     thread_handle: Option<JoinHandle<Result<(), EVBError>>>,
-    fd_window: FileDialog
+    fd_window: FileDialog,
 }
 
 impl EVBApp {
@@ -26,7 +26,7 @@ impl EVBApp {
             workspace: String::from(""),
             channel_map: String::from(""),
             thread_handle: None,
-            fd_window: FileDialog::default()
+            fd_window: FileDialog::default(),
         }
     }
 
@@ -71,9 +71,8 @@ impl EVBApp {
 
 impl App for EVBApp {
     fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
-
         if self.fd_window.show(ctx) {
-            info!("WOW");
+            info!("Selected item: {}", self.fd_window.get_selected_item().display());
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -83,6 +82,9 @@ impl App for EVBApp {
                 }
                 if ui.button("Save Config...").clicked() {
                     self.fd_window.save_file();
+                }
+                if ui.button("Open Dir...").clicked() {
+                    self.fd_window.open_directory();
                 }
             });
             ui.horizontal(|ui| {
