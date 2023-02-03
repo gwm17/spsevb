@@ -1,2 +1,2 @@
 pub mod app;
-mod file_dialog;
+mod workspace;

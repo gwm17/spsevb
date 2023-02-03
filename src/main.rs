@@ -10,6 +10,7 @@ extern crate log;
 extern crate simplelog;
 extern crate eframe;
 extern crate egui_extras;
+extern crate native_dialog;
 
 mod evb;
 mod ui;
