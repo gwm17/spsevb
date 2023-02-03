@@ -9,7 +9,7 @@ use std::path::PathBuf;
 
 use crate::evb::compass_run::{process_run, RunParams};
 use crate::evb::error::EVBError;
-use super::workspace::{Workspace, WorkspaceError};
+use super::ws::{Workspace, WorkspaceError};
 
 #[derive(Debug, Default)]
 pub struct EVBApp {

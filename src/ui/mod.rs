@@ -1,2 +1,2 @@
 pub mod app;
-mod workspace;
+mod ws;
