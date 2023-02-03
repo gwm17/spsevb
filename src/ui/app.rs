@@ -15,7 +15,7 @@ use super::ws::{Workspace, WorkspaceError};
 pub struct EVBApp {
     progress: Arc<Mutex<f32>>,
     workspace: Option<Workspace>,
-    channel_map: String,
+    channel_map: Option<PathBuf>,
     run_number: i32,
     thread_handle: Option<JoinHandle<Result<(), EVBError>>>
 }
@@ -25,7 +25,7 @@ impl EVBApp {
         EVBApp {
             progress: Arc::new(Mutex::new(0.0)),
             workspace: None,
-            channel_map: String::from(""),
+            channel_map: None,
             run_number: 0,
             thread_handle: None
         }
@@ -106,7 +106,7 @@ impl App for EVBApp {
             });
 
             ui.horizontal(|ui| {
-                ui.label("Workspace");
+                ui.label("Workspace: ");
                 ui.label(match &self.workspace {
                     Some(ws) => ws.get_parent_str(),
                     None => "None"
@@ -131,8 +131,11 @@ impl App for EVBApp {
                 }
             });
             ui.horizontal(|ui| {
-                ui.label("Channel Map");
-                ui.label(&self.channel_map);
+                ui.label("Channel Map: ");
+                ui.label(match &self.channel_map {
+                    Some(real_path) => real_path.as_path().to_str().expect("Cannot display channel map!"),
+                    None => "None"
+                });
                 if ui.button("Open").clicked() {
                     let result = native_dialog::FileDialog::new()
                                  .set_location(&std::env::current_dir().expect("Couldn't access runtime directory"))
@@ -140,7 +143,7 @@ impl App for EVBApp {
                                  .show_open_single_file();
                     match result {
                         Ok(path) => match path {
-                            Some(real_path) => info!("Selected a path {}", real_path.display()),
+                            Some(real_path) => self.channel_map = Some(real_path),
                             None => ()
                         }
                         Err(_) => error!("File dialog error!")
