@@ -9,6 +9,8 @@ use std::path::PathBuf;
 
 use crate::evb::compass_run::{process_run, RunParams};
 use crate::evb::error::EVBError;
+use crate::evb::nuclear_data::MassMap;
+use crate::evb::kinematics::KineParameters;
 use super::ws::{Workspace, WorkspaceError};
 
 #[derive(Debug, Default)]
@@ -17,6 +19,9 @@ pub struct EVBApp {
     workspace: Option<Workspace>,
     channel_map: Option<PathBuf>,
     run_number: i32,
+    kine_params: KineParameters,
+    rxn_eqn: String,
+    mass_map: MassMap,
     thread_handle: Option<JoinHandle<Result<(), EVBError>>>
 }
 
@@ -27,6 +32,9 @@ impl EVBApp {
             workspace: None,
             channel_map: None,
             run_number: 0,
+            kine_params: KineParameters::default(),
+            rxn_eqn: String::from("None"),
+            mass_map: MassMap::new().expect("Could not open amdc data, shutting down!"),
             thread_handle: None
         }
     }
@@ -76,6 +84,7 @@ impl App for EVBApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
 
+            //Menus
             ui.menu_button("File", |ui| {
                 if ui.button("Open Config...").clicked() {
                     let result = native_dialog::FileDialog::new()
@@ -105,55 +114,95 @@ impl App for EVBApp {
                 }
             });
 
-            ui.horizontal(|ui| {
-                ui.label("Workspace: ");
-                ui.label(match &self.workspace {
-                    Some(ws) => ws.get_parent_str(),
-                    None => "None"
-                });
-                if ui.button("Open").clicked() {
-                    let result = native_dialog::FileDialog::new()
-                                 .set_location(&std::env::current_dir().expect("Couldn't access runtime directory"))
-                                 .show_open_single_dir();
-                    match result {
-                        Ok(path) => match path {
-                            Some(real_path) => self.workspace = match Workspace::new(&real_path) {
-                                Ok(ws) => Some(ws),
-                                Err(e) => {
-                                    error!("Error creating workspace: {}", e);
-                                    None
-                                }
-                            },
-                            None => ()
+            //Files/Workspace
+            ui.label("Run Information");
+            ui.group(|ui| {
+                ui.horizontal(|ui| {
+                    ui.label("Workspace: ");
+                    ui.label(match &self.workspace {
+                        Some(ws) => ws.get_parent_str(),
+                        None => "None"
+                    });
+                    if ui.button("Open").clicked() {
+                        let result = native_dialog::FileDialog::new()
+                                     .set_location(&std::env::current_dir().expect("Couldn't access runtime directory"))
+                                     .show_open_single_dir();
+                        match result {
+                            Ok(path) => match path {
+                                Some(real_path) => self.workspace = match Workspace::new(&real_path) {
+                                    Ok(ws) => Some(ws),
+                                    Err(e) => {
+                                        error!("Error creating workspace: {}", e);
+                                        None
+                                    }
+                                },
+                                None => ()
+                            }
+                            Err(_) => error!("File dialog error!")
                         }
-                        Err(_) => error!("File dialog error!")
                     }
-                }
-            });
-            ui.horizontal(|ui| {
-                ui.label("Channel Map: ");
-                ui.label(match &self.channel_map {
-                    Some(real_path) => real_path.as_path().to_str().expect("Cannot display channel map!"),
-                    None => "None"
                 });
-                if ui.button("Open").clicked() {
-                    let result = native_dialog::FileDialog::new()
-                                 .set_location(&std::env::current_dir().expect("Couldn't access runtime directory"))
-                                 .add_filter("Text File", &["txt"])
-                                 .show_open_single_file();
-                    match result {
-                        Ok(path) => match path {
-                            Some(real_path) => self.channel_map = Some(real_path),
-                            None => ()
+                ui.horizontal(|ui| {
+                    ui.label("Channel Map: ");
+                    ui.label(match &self.channel_map {
+                        Some(real_path) => real_path.as_path().to_str().expect("Cannot display channel map!"),
+                        None => "None"
+                    });
+                    if ui.button("Open").clicked() {
+                        let result = native_dialog::FileDialog::new()
+                                     .set_location(&std::env::current_dir().expect("Couldn't access runtime directory"))
+                                     .add_filter("Text File", &["txt"])
+                                     .show_open_single_file();
+                        match result {
+                            Ok(path) => match path {
+                                Some(real_path) => self.channel_map = Some(real_path),
+                                None => ()
+                            }
+                            Err(_) => error!("File dialog error!")
                         }
-                        Err(_) => error!("File dialog error!")
                     }
-                }
+                });
+                ui.horizontal(|ui| {
+                    ui.label("Run Number");
+                    ui.add(egui::widgets::DragValue::new(&mut self.run_number).speed(1));
+                });
             });
 
-            ui.horizontal(|ui| {
-                ui.label("Run Number");
-                ui.add(egui::widgets::DragValue::new(&mut self.run_number).speed(1));
+            //Kinematics elements
+            ui.label("Kinematics");
+            ui.group(|ui| {
+                ui.horizontal(|ui| {
+                    ui.label("Target Z     ");
+                    ui.add(egui::widgets::DragValue::new(&mut self.kine_params.target_z).speed(1));
+                    ui.label("Target A     ");
+                    ui.add(egui::widgets::DragValue::new(&mut self.kine_params.target_a).speed(1));
+                });
+                ui.horizontal(|ui| {
+                    ui.label("Projectile Z");
+                    ui.add(egui::widgets::DragValue::new(&mut self.kine_params.projectile_z).speed(1));
+                    ui.label("Projectile A");
+                    ui.add(egui::widgets::DragValue::new(&mut self.kine_params.projectile_a).speed(1));
+                });
+                ui.horizontal(|ui| {
+                    ui.label("Ejectile Z   ");
+                    ui.add(egui::widgets::DragValue::new(&mut self.kine_params.ejectile_z).speed(1));
+                    ui.label("Ejectile A   ");
+                    ui.add(egui::widgets::DragValue::new(&mut self.kine_params.ejectile_a).speed(1));
+                });
+
+                ui.horizontal(|ui| {
+                    ui.label("Magnetic Field(kG)");
+                    ui.add(egui::widgets::DragValue::new(&mut self.kine_params.b_field).speed(10.0));
+                    ui.label("SPS Angle(deg)");
+                    ui.add(egui::widgets::DragValue::new(&mut self.kine_params.sps_angle).speed(1.0));
+                    ui.label("Projectile KE(MeV)");
+                    ui.add(egui::widgets::DragValue::new(&mut self.kine_params.projectile_ke).speed(0.01));
+                });
+                ui.label("Reaction Equation");
+                ui.label(&self.rxn_eqn);
+                if ui.button("Set Kinematics").clicked() {
+                    self.rxn_eqn = self.kine_params.generate_rxn_eqn(&self.mass_map);
+                }
             });
 
             ui.add(

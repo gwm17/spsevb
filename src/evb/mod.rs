@@ -5,4 +5,5 @@ pub mod compass_file;
 pub mod event_builder;
 pub mod compass_run;
 pub mod error;
+pub mod nuclear_data;
 pub mod kinematics;
