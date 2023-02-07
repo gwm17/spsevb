@@ -12,6 +12,8 @@ use super::compass_file::CompassFile;
 use super::event_builder::EventBuilder;
 use super::sps_data::{SPSData, SPSDataField};
 use super::error::EVBError;
+use super::nuclear_data::MassMap;
+use super::kinematics::{KineParameters, calculate_weights};
 
 #[derive(Debug)]
 pub struct RunParams {
@@ -51,7 +53,7 @@ fn make_dataframe(data: Vec<SPSData>) -> Result<DataFrame, PolarsError> {
     DataFrame::new(columns)
 }
 
-pub fn process_run(params: RunParams, progress: Arc<Mutex<f32>>) -> Result<(), EVBError> {
+pub fn process_run(params: RunParams, k_params: KineParameters, nuc_map: Arc<MassMap>, progress: Arc<Mutex<f32>>) -> Result<(), EVBError> {
     let archive_file = File::open(&params.run_archive_path)?;
     let mut decompressed_archive = Archive::new(GzDecoder::new(archive_file));
     decompressed_archive.unpack(&params.unpack_dir_path)?;
@@ -67,6 +69,7 @@ pub fn process_run(params: RunParams, progress: Arc<Mutex<f32>>) -> Result<(), E
 
     let mut evb = EventBuilder::new(&params.coincidence_window);
     let channel_map = ChannelMap::new(&params.chanmap_file_path)?;
+    let x_weights = calculate_weights(&k_params, &nuc_map);
 
     let mut earliest_file_index: Option<usize>;
     let mut analyzed_data: Vec<SPSData> = vec![];
@@ -108,7 +111,7 @@ pub fn process_run(params: RunParams, progress: Arc<Mutex<f32>>) -> Result<(), E
         }
 
         if evb.is_event_ready() {
-            let data = SPSData::new(evb.get_ready_event(), &channel_map);
+            let data = SPSData::new(evb.get_ready_event(), &channel_map, x_weights);
             if !data.is_default() {
                 analyzed_data.push(data);
             }

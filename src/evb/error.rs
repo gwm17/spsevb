@@ -2,6 +2,7 @@ use flate2::DecompressError;
 use polars::error::PolarsError;
 use std::error::Error;
 use super::channel_map::{ChannelMapError};
+use super::nuclear_data::MassError;
 use std::fmt::Display;
 
 #[derive(Debug)]
@@ -12,6 +13,7 @@ pub enum EVBError {
     ParserError,
     ChannelError(ChannelMapError),
     DataFrameError(PolarsError),
+    MassMapError(MassError),
     SyncError
 }
 
@@ -39,6 +41,12 @@ impl From<PolarsError> for EVBError {
     }
 }
 
+impl From<MassError> for EVBError {
+    fn from(value: MassError) -> Self {
+        EVBError::MassMapError(value)
+    }
+}
+
 impl Display for EVBError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -48,6 +56,7 @@ impl Display for EVBError {
             EVBError::ParserError => write!(f, "Run had an error parsing the data from files"),
             EVBError::ChannelError(x) => write!(f, "Run had an error occur with the channel map: {}", x),
             EVBError::DataFrameError(x) => write!(f, "Run had an error using polars: {}", x),
+            EVBError::MassMapError(x) => write!(f, "Run had an error with the mass data: {}", x),
             EVBError::SyncError => write!(f, "Run was unable to access shared progress resource")
         }
     }

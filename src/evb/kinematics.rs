@@ -1,4 +1,10 @@
-use super::nuclear_data::{MassMap};
+use super::nuclear_data::MassMap;
+
+const C: f64 = 2.99792458e8; //speed of light in m/s
+const QBRHO2P: f64 = C * 1.0e-9; //convert charge (in units of e) * B (kG (tesla)) * rho (cm) to momentum in MeV
+const SPS_DISPERSION: f64 = 1.96; // x-position/rho
+const SPS_MAGNIFICATION: f64 = 0.39; // in x-position
+const SPS_DETECTOR_WIRE_DIST: f64 = 4.28625; //Distance between anode wires in SPS focal plane detector cm
 
 #[derive(Debug, Clone)]
 pub struct KineParameters {
@@ -63,10 +69,53 @@ impl KineParameters {
     }
 }
 
+//Returns z-offset of focal plane in cm
 fn calculate_z_offset(params: &KineParameters, nuc_map: &MassMap) -> Option<f64> {
-    Some(0.0)
+    let target = match nuc_map.get_data(&params.target_z, &params.target_a){
+        Some(data) => data,
+        None => return None
+    };
+    let projectile = match nuc_map.get_data(&params.projectile_z, &params.projectile_a) {
+        Some(data) => data,
+        None => return None
+    };
+    let ejectile = match nuc_map.get_data(&params.ejectile_z, &params.ejectile_a) {
+        Some(data) => data,
+        None => return None
+    };
+    let residual = match nuc_map.get_data(&params.get_residual_z(), &params.get_residual_a()) {
+        Some(data) => data,
+        None => return None
+    };
+
+    let angle_rads = params.sps_angle.to_radians();
+    let q_val = target.mass + projectile.mass - ejectile.mass - residual.mass;
+    let term1 = (projectile.mass + ejectile.mass + params.projectile_ke).sqrt() / 
+                     (ejectile.mass + residual.mass) * angle_rads.cos();
+    let term2 = (params.projectile_ke * (residual.mass - projectile.mass) + residual.mass * q_val) /
+                     (ejectile.mass + residual.mass);
+
+    let mut ejectile_ke = term1 + (term1 * term1 + term2).sqrt();
+    if ejectile_ke.is_nan() {
+        return None;
+    }
+    ejectile_ke *= ejectile_ke;
+
+    let ejectile_p = (ejectile_ke * (ejectile_ke + ejectile.mass)).sqrt();
+    let rho = ejectile_p /((target.z as f64) * params.b_field * QBRHO2P);
+    let val = (projectile.mass * ejectile.mass * params.projectile_ke / ejectile_ke).sqrt();
+    let k = val * angle_rads.sin() / (ejectile.mass + residual.mass - val * angle_rads.cos());
+    return Some(-1.0 * rho * SPS_DISPERSION * SPS_MAGNIFICATION * k);
 }
 
-pub fn calculate_weights(params: &KineParameters, nuc_map: &MassMap) -> (f64, f64) {
-    (0.0, 0.0)
+//Calculate weights for correcting focal plane position for kinematic shift
+//Returns tuple of weights where should be used like xavg = x1 * result.0 + x2 * result.1
+pub fn calculate_weights(params: &KineParameters, nuc_map: &MassMap) -> Option<(f64, f64)> {
+    let z_offset = match calculate_z_offset(params, nuc_map) {
+        Some(z) => z,
+        None => return None
+    };
+    let w1 = 0.5 - z_offset/SPS_DETECTOR_WIRE_DIST;
+    let w2 = 1.0 - w1;
+    Some((w1, w2))
 }

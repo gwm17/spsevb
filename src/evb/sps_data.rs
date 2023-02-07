@@ -18,6 +18,7 @@ const DELAY_BACK_RIGHT_COLUMN: &str = "DelayBackRight";
 const CATHODE_COLUMN: &str  = "Cathode";
 const X1_COLUMN: &str = "X1";
 const X2_COLUMN: &str = "X2";
+const XAVG_COLUMN: &str = "Xavg";
 const THETA_COLUMN: &str = "Theta";
 
 const ENERGY_MOD: &str = "ENERGY";
@@ -55,6 +56,7 @@ pub enum SPSDataField {
     DelayBackRightTime,
     X1,
     X2,
+    Xavg,
     Theta
 }
 
@@ -91,6 +93,7 @@ impl SPSDataField {
             SPSDataField::DelayBackRightTime    => format!("{}{}", DELAY_BACK_RIGHT_COLUMN, TIME_MOD),
             SPSDataField::X1                    => X1_COLUMN.to_string(),
             SPSDataField::X2                    => X2_COLUMN.to_string(),
+            SPSDataField::Xavg                  => XAVG_COLUMN.to_string(),
             SPSDataField::Theta                 => THETA_COLUMN.to_string()
         }
     }
@@ -127,6 +130,7 @@ impl SPSDataField {
             SPSDataField::DelayBackRightTime,
             SPSDataField::X1,
             SPSDataField::X2,
+            SPSDataField::Xavg,
             SPSDataField::Theta                
         ]
     }
@@ -148,7 +152,7 @@ impl Default for SPSData {
 
 impl SPSData {
 
-    pub fn new(event: Vec<CompassData>, map: &ChannelMap) -> SPSData {
+    pub fn new(event: Vec<CompassData>, map: &ChannelMap, weights: Option<(f64, f64)>) -> SPSData {
         let mut data = SPSData::default();
 
         let mut dfl_time = INVALID_VALUE;
@@ -241,6 +245,11 @@ impl SPSData {
             } else {
                 data.fields.insert(SPSDataField::Theta, std::f64::consts::PI * 0.5);
             }
+
+            match weights {
+               Some(w) => data.fields.insert(SPSDataField::Xavg, w.0 * x1 + w.1 * x2),
+               None => data.fields.insert(SPSDataField::Xavg, INVALID_VALUE)
+            };
         }
 
         return data;
