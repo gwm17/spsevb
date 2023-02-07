@@ -19,6 +19,7 @@ pub struct EVBApp {
     progress: Arc<Mutex<f32>>,
     workspace: Option<Workspace>,
     channel_map: Option<PathBuf>,
+    coincidence_window: f64,
     run_number: i32,
     kine_params: KineParameters,
     rxn_eqn: String,
@@ -32,6 +33,7 @@ impl EVBApp {
             progress: Arc::new(Mutex::new(0.0)),
             workspace: None,
             channel_map: None,
+            coincidence_window: 3.0e3,
             run_number: 0,
             kine_params: KineParameters::default(),
             rxn_eqn: String::from("None"),
@@ -49,7 +51,7 @@ impl EVBApp {
                 unpack_dir_path: self.workspace.as_ref().unwrap().get_temp_binary_dir()?,
                 output_file_path: self.workspace.as_ref().unwrap().get_built_file(&self.run_number)?,
                 chanmap_file_path: PathBuf::from("./etc/ChannelMap.txt"),
-                coincidence_window: 3.0e3,
+                coincidence_window: self.coincidence_window,
             };
 
             match self.progress.lock() {
@@ -164,6 +166,12 @@ impl App for EVBApp {
                         Err(_) => error!("File dialog error!")
                     }
                 }
+                ui.end_row();
+
+                ui.label("Coincidence Window (ns)");
+                ui.add(egui::widgets::DragValue::new(&mut self.coincidence_window).speed(100).custom_formatter(|n, _| {
+                    format!("{:e}", n)
+                }));
                 ui.end_row();
 
                 ui.label("Run Number");

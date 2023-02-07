@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::fs::File;
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 
 use flate2::read::GzDecoder;
 use polars::prelude::*;
@@ -22,6 +22,19 @@ pub struct RunParams {
     pub output_file_path: PathBuf,
     pub chanmap_file_path: PathBuf,
     pub coincidence_window: f64,
+}
+
+fn clean_up_unpack_dir(unpack_dir: &Path) -> Result<(), EVBError> {
+
+    for item in unpack_dir.read_dir()? {
+        if let Ok(entry) = item {
+            if entry.metadata()?.is_file() {
+                std::fs::remove_file(entry.path())?;
+            }
+        }
+    }
+
+    Ok(())
 }
 
 fn make_dataframe(data: Vec<SPSData>) -> Result<DataFrame, PolarsError> {
@@ -54,6 +67,8 @@ fn make_dataframe(data: Vec<SPSData>) -> Result<DataFrame, PolarsError> {
 }
 
 pub fn process_run(params: RunParams, k_params: KineParameters, nuc_map: Arc<MassMap>, progress: Arc<Mutex<f32>>) -> Result<(), EVBError> {
+    clean_up_unpack_dir(&params.unpack_dir_path)?;
+
     let archive_file = File::open(&params.run_archive_path)?;
     let mut decompressed_archive = Archive::new(GzDecoder::new(archive_file));
     decompressed_archive.unpack(&params.unpack_dir_path)?;
@@ -132,6 +147,10 @@ pub fn process_run(params: RunParams, k_params: KineParameters, nuc_map: Arc<Mas
     let mut df = make_dataframe(analyzed_data)?;
     let mut output_file = File::create(&params.output_file_path)?;
     ParquetWriter::new(&mut output_file).finish(&mut df)?;
+
+    drop(files);
+
+    clean_up_unpack_dir(&params.unpack_dir_path)?;
 
     return Ok(());
 }
