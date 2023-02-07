@@ -19,6 +19,7 @@ pub struct EVBApp {
     progress: Arc<Mutex<f32>>,
     workspace: Option<Workspace>,
     channel_map: Option<PathBuf>,
+    scaler_list: Option<PathBuf>,
     coincidence_window: f64,
     run_number: i32,
     kine_params: KineParameters,
@@ -33,6 +34,7 @@ impl EVBApp {
             progress: Arc::new(Mutex::new(0.0)),
             workspace: None,
             channel_map: None,
+            scaler_list: None,
             coincidence_window: 3.0e3,
             run_number: 0,
             kine_params: KineParameters::default(),
@@ -43,14 +45,16 @@ impl EVBApp {
     }
 
     fn check_and_startup_processing_thread(&mut self) -> Result<(), WorkspaceError> {
-        if self.thread_handle.is_none() && self.workspace.is_some() {
+        if self.thread_handle.is_none() && self.workspace.is_some() 
+           && self.channel_map.is_some() && self.scaler_list.is_some() {
             let prog = self.progress.clone();
-            //testing
             let params = RunParams {
                 run_archive_path: self.workspace.as_ref().unwrap().get_raw_binary_file(&self.run_number)?,
                 unpack_dir_path: self.workspace.as_ref().unwrap().get_temp_binary_dir()?,
                 output_file_path: self.workspace.as_ref().unwrap().get_built_file(&self.run_number)?,
-                chanmap_file_path: PathBuf::from("./etc/ChannelMap.txt"),
+                chanmap_file_path: self.channel_map.as_ref().unwrap().clone(),
+                scalerlist_file_path: self.scaler_list.as_ref().unwrap().clone(),
+                scalerout_file_path: self.workspace.as_ref().unwrap().get_scaler_file(&self.run_number)?,
                 coincidence_window: self.coincidence_window,
             };
 
@@ -61,6 +65,8 @@ impl EVBApp {
             let k_params = self.kine_params.clone();
             let mass_handle = self.mass_map.clone();
             self.thread_handle = Some(std::thread::spawn(|| process_run(params, k_params, mass_handle, prog)));
+        } else {
+            error!("Cannot run event builder without all filepaths specified");
         }
         Ok(())
     }
@@ -161,6 +167,26 @@ impl App for EVBApp {
                     match result {
                         Ok(path) => match path {
                             Some(real_path) => self.channel_map = Some(real_path),
+                            None => ()
+                        }
+                        Err(_) => error!("File dialog error!")
+                    }
+                }
+                ui.end_row();
+
+                ui.label("Scaler List: ");
+                ui.label(match &self.scaler_list {
+                    Some(real_path) => real_path.as_path().to_str().expect("Cannot display scaler list!"),
+                    None => "None"
+                });
+                if ui.button("Open").clicked() {
+                    let result = native_dialog::FileDialog::new()
+                                 .set_location(&std::env::current_dir().expect("Couldn't access runtime directory"))
+                                 .add_filter("Text File", &["txt"])
+                                 .show_open_single_file();
+                    match result {
+                        Ok(path) => match path {
+                            Some(real_path) => self.scaler_list = Some(real_path),
                             None => ()
                         }
                         Err(_) => error!("File dialog error!")

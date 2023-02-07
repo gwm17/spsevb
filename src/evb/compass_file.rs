@@ -42,7 +42,7 @@ pub struct CompassFile {
 }
 
 impl CompassFile {
-    pub fn new(path: &path::PathBuf) -> Result<CompassFile, EVBError> {
+    pub fn new(path: &path::Path) -> Result<CompassFile, EVBError> {
         let mut file: File = File::open(path)?;
         let total_size = file.metadata()?.len();
 

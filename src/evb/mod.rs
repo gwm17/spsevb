@@ -7,3 +7,4 @@ pub mod compass_run;
 pub mod error;
 pub mod nuclear_data;
 pub mod kinematics;
+pub mod scaler_list;

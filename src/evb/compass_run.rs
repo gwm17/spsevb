@@ -8,6 +8,7 @@ use std::sync::{Mutex, Arc};
 use tar::Archive;
 
 use super::channel_map::ChannelMap;
+use super::scaler_list::ScalerList;
 use super::compass_file::CompassFile;
 use super::event_builder::EventBuilder;
 use super::sps_data::{SPSData, SPSDataField};
@@ -21,6 +22,8 @@ pub struct RunParams {
     pub unpack_dir_path: PathBuf,
     pub output_file_path: PathBuf,
     pub chanmap_file_path: PathBuf,
+    pub scalerlist_file_path: PathBuf,
+    pub scalerout_file_path: PathBuf,
     pub coincidence_window: f64,
 }
 
@@ -73,13 +76,18 @@ pub fn process_run(params: RunParams, k_params: KineParameters, nuc_map: Arc<Mas
     let mut decompressed_archive = Archive::new(GzDecoder::new(archive_file));
     decompressed_archive.unpack(&params.unpack_dir_path)?;
 
+    let mut scaler_list = ScalerList::new(&params.scalerlist_file_path)?;
+
     let mut files: Vec<CompassFile> = vec![];
     let mut total_count: u64 = 0;
     for item in params.unpack_dir_path.read_dir()? {
-        files.push(CompassFile::new(&item?.path())?);
-        files.last_mut().unwrap().set_hit_used();
-        files.last_mut().unwrap().get_top_hit()?;
-        total_count += files.last().unwrap().get_number_of_hits();
+        let filepath = &item?.path();
+        if !scaler_list.read_scaler(filepath) {
+            files.push(CompassFile::new(filepath)?);
+            files.last_mut().unwrap().set_hit_used();
+            files.last_mut().unwrap().get_top_hit()?;
+            total_count += files.last().unwrap().get_number_of_hits();
+        }
     }
 
     let mut evb = EventBuilder::new(&params.coincidence_window);
@@ -147,8 +155,11 @@ pub fn process_run(params: RunParams, k_params: KineParameters, nuc_map: Arc<Mas
     let mut df = make_dataframe(analyzed_data)?;
     let mut output_file = File::create(&params.output_file_path)?;
     ParquetWriter::new(&mut output_file).finish(&mut df)?;
+    scaler_list.write_scalers(&params.scalerout_file_path)?;
 
+    //To be safe, manually drop all files in unpack dir before deleting all the files
     drop(files);
+    drop(scaler_list);
 
     clean_up_unpack_dir(&params.unpack_dir_path)?;
 
