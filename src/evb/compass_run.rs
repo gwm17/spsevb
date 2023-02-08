@@ -17,11 +17,10 @@ use super::nuclear_data::MassMap;
 use super::kinematics::{KineParameters, calculate_weights};
 
 #[derive(Debug)]
-pub struct RunParams {
+struct RunParams {
     pub run_archive_path: PathBuf,
     pub unpack_dir_path: PathBuf,
     pub output_file_path: PathBuf,
-    pub chanmap_file_path: PathBuf,
     pub scalerlist_file_path: PathBuf,
     pub scalerout_file_path: PathBuf,
     pub coincidence_window: f64,
@@ -69,7 +68,7 @@ fn make_dataframe(data: Vec<SPSData>) -> Result<DataFrame, PolarsError> {
     DataFrame::new(columns)
 }
 
-pub fn process_run(params: RunParams, k_params: KineParameters, nuc_map: Arc<MassMap>, progress: Arc<Mutex<f32>>) -> Result<(), EVBError> {
+fn process_run(params: RunParams, k_params: &KineParameters, nuc_map: &MassMap, channel_map: &ChannelMap, progress: Arc<Mutex<f32>>) -> Result<(), EVBError> {
     clean_up_unpack_dir(&params.unpack_dir_path)?;
 
     let archive_file = File::open(&params.run_archive_path)?;
@@ -91,7 +90,6 @@ pub fn process_run(params: RunParams, k_params: KineParameters, nuc_map: Arc<Mas
     }
 
     let mut evb = EventBuilder::new(&params.coincidence_window);
-    let channel_map = ChannelMap::new(&params.chanmap_file_path)?;
     let x_weights = calculate_weights(&k_params, &nuc_map);
 
     let mut earliest_file_index: Option<usize>;
@@ -159,9 +157,45 @@ pub fn process_run(params: RunParams, k_params: KineParameters, nuc_map: Arc<Mas
 
     //To be safe, manually drop all files in unpack dir before deleting all the files
     drop(files);
-    drop(scaler_list);
 
     clean_up_unpack_dir(&params.unpack_dir_path)?;
 
     return Ok(());
+}
+
+pub struct ProcessParams {
+    pub archive_dir: PathBuf,
+    pub unpack_dir: PathBuf,
+    pub output_dir: PathBuf,
+    pub channel_map_filepath: PathBuf,
+    pub scaler_list_filepath: PathBuf,
+    pub coincidence_window: f64,
+    pub run_min: i32,
+    pub run_max: i32
+}
+
+pub fn process_runs(params: ProcessParams, k_params: KineParameters, progress: Arc<Mutex<f32>>) -> Result<(), EVBError> {
+    let channel_map = ChannelMap::new(&params.channel_map_filepath)?;
+    let mass_map = MassMap::new()?;
+    for run in params.run_min..params.run_max {
+        let local_params =  RunParams {
+            run_archive_path: params.archive_dir.join(format!("run_{}.tar.gz", run)),
+            unpack_dir_path: params.unpack_dir.clone(),
+            output_file_path: params.output_dir.join(format!("run_{}.parquet", run)),
+            scalerlist_file_path: params.scaler_list_filepath.clone(),
+            scalerout_file_path: params.output_dir.join(format!("run_{}_scalers.txt", run)),
+            coincidence_window: params.coincidence_window.clone()
+        };
+
+        match progress.lock() {
+            Ok(mut prog) => *prog  = 0.0,
+            Err(_) => return Err(EVBError::SyncError)
+        };
+
+        if local_params.run_archive_path.exists() {
+            process_run(local_params, &k_params, &mass_map, &channel_map, progress.clone())?;
+        }
+    }
+
+    Ok(())
 }

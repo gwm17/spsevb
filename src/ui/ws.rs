@@ -11,8 +11,7 @@ const SCALERS: &str = "scalers";
 #[derive(Debug, Clone)]
 pub enum WorkspaceError {
     ParentError,
-    SubdirectoryError,
-    RawFileError(i32),
+    SubdirectoryError
 }
 
 impl Display for WorkspaceError {
@@ -25,12 +24,7 @@ impl Display for WorkspaceError {
             WorkspaceError::SubdirectoryError => write!(
                 f,
                 "A required subdirectory in workspace does not exist and could not be created!"
-            ),
-            WorkspaceError::RawFileError(run_number) => write!(
-                f,
-                "Run file number {} could not be found in raw binary directory!",
-                run_number
-            ),
+            )
         }
     }
 }
@@ -78,42 +72,28 @@ impl Workspace {
         }
     }
 
-    pub fn get_raw_binary_file(&self, run_number: &i32) -> Result<PathBuf, WorkspaceError> {
-        let run_file = self
-            .parent_dir
-            .join(RAW_BINARY)
-            .join(format!("run_{}.tar.gz", run_number));
-        if run_file.exists() {
-            Ok(run_file)
-        } else {
-            Err(WorkspaceError::RawFileError(*run_number))
-        }
-    }
-
-    pub fn get_temp_binary_dir(&self) -> Result<PathBuf, WorkspaceError> {
-        let temp_binary = self.parent_dir.join(TEMP_BINARY);
-        if temp_binary.exists() {
-            Ok(temp_binary)
+    pub fn get_archive_dir(&self) -> Result<PathBuf, WorkspaceError> {
+        let archive_dir = self.parent_dir.join(RAW_BINARY);
+        if archive_dir.exists() {
+            Ok(archive_dir)
         } else {
             Err(WorkspaceError::SubdirectoryError)
         }
     }
 
-    pub fn get_built_file(&self, run_number: &i32) -> Result<PathBuf, WorkspaceError> {
-        let mut built_file = self.parent_dir.join(BUILT);
-        if built_file.exists() {
-            built_file.push(format!("run_{}.parquet", run_number));
-            Ok(built_file)
+    pub fn get_unpack_dir(&self) -> Result<PathBuf, WorkspaceError> {
+        let unpack_dir = self.parent_dir.join(TEMP_BINARY);
+        if unpack_dir.exists() {
+            Ok(unpack_dir)
         } else {
             Err(WorkspaceError::SubdirectoryError)
         }
     }
 
-    pub fn get_scaler_file(&self, run_number: &i32) -> Result<PathBuf, WorkspaceError> {
-        let mut scaler_file = self.parent_dir.join(SCALERS);
-        if scaler_file.exists() {
-            scaler_file.push(format!("scalers_run_{}.txt", run_number));
-            Ok(scaler_file)
+    pub fn get_output_dir(&self) -> Result<PathBuf, WorkspaceError> {
+        let output_dir = self.parent_dir.join(BUILT);
+        if output_dir.exists() {
+            Ok(output_dir)
         } else {
             Err(WorkspaceError::SubdirectoryError)
         }

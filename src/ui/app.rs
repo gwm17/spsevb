@@ -8,7 +8,7 @@ use std::thread::JoinHandle;
 
 use std::path::PathBuf;
 
-use crate::evb::compass_run::{process_run, RunParams};
+use crate::evb::compass_run::{process_runs, ProcessParams};
 use crate::evb::error::EVBError;
 use crate::evb::nuclear_data::MassMap;
 use crate::evb::kinematics::KineParameters;
@@ -21,10 +21,11 @@ pub struct EVBApp {
     channel_map: Option<PathBuf>,
     scaler_list: Option<PathBuf>,
     coincidence_window: f64,
-    run_number: i32,
+    run_min: i32,
+    run_max: i32,
     kine_params: KineParameters,
     rxn_eqn: String,
-    mass_map: Arc<MassMap>,
+    mass_map: MassMap,
     thread_handle: Option<JoinHandle<Result<(), EVBError>>>
 }
 
@@ -36,10 +37,11 @@ impl EVBApp {
             channel_map: None,
             scaler_list: None,
             coincidence_window: 3.0e3,
-            run_number: 0,
+            run_min: 0,
+            run_max: 0,
             kine_params: KineParameters::default(),
             rxn_eqn: String::from("None"),
-            mass_map: Arc::new(MassMap::new().expect("Could not open amdc data, shutting down!")),
+            mass_map: MassMap::new().expect("Could not open amdc data, shutting down!"),
             thread_handle: None
         }
     }
@@ -48,14 +50,15 @@ impl EVBApp {
         if self.thread_handle.is_none() && self.workspace.is_some() 
            && self.channel_map.is_some() && self.scaler_list.is_some() {
             let prog = self.progress.clone();
-            let params = RunParams {
-                run_archive_path: self.workspace.as_ref().unwrap().get_raw_binary_file(&self.run_number)?,
-                unpack_dir_path: self.workspace.as_ref().unwrap().get_temp_binary_dir()?,
-                output_file_path: self.workspace.as_ref().unwrap().get_built_file(&self.run_number)?,
-                chanmap_file_path: self.channel_map.as_ref().unwrap().clone(),
-                scalerlist_file_path: self.scaler_list.as_ref().unwrap().clone(),
-                scalerout_file_path: self.workspace.as_ref().unwrap().get_scaler_file(&self.run_number)?,
+            let params = ProcessParams {
+                archive_dir: self.workspace.as_ref().unwrap().get_archive_dir()?,
+                unpack_dir: self.workspace.as_ref().unwrap().get_unpack_dir()?,
+                output_dir: self.workspace.as_ref().unwrap().get_output_dir()?,
+                channel_map_filepath: self.channel_map.as_ref().unwrap().clone(),
+                scaler_list_filepath: self.scaler_list.as_ref().unwrap().clone(),
                 coincidence_window: self.coincidence_window,
+                run_min: self.run_min,
+                run_max: self.run_max + 1, //Make it [run_min, run_max]
             };
 
             match self.progress.lock() {
@@ -63,8 +66,7 @@ impl EVBApp {
                 Err(_) => error!("Could not aquire lock at starting processor..."),
             };
             let k_params = self.kine_params.clone();
-            let mass_handle = self.mass_map.clone();
-            self.thread_handle = Some(std::thread::spawn(|| process_run(params, k_params, mass_handle, prog)));
+            self.thread_handle = Some(std::thread::spawn(|| process_runs(params, k_params, prog)));
         } else {
             error!("Cannot run event builder without all filepaths specified");
         }
@@ -200,8 +202,12 @@ impl App for EVBApp {
                 }));
                 ui.end_row();
 
-                ui.label("Run Number");
-                ui.add(egui::widgets::DragValue::new(&mut self.run_number).speed(1));
+                ui.label("Run Min");
+                ui.add(egui::widgets::DragValue::new(&mut self.run_min).speed(1));
+                ui.end_row();
+                
+                ui.label("Run Max");
+                ui.add(egui::widgets::DragValue::new(&mut self.run_max).speed(1));
             });
 
             //Kinematics elements

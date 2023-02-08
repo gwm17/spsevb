@@ -1,0 +1,2 @@
+FilePattern ScalerName
+Data_CH5@V1730_89 beamint
