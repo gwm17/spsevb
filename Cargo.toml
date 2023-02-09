@@ -15,5 +15,7 @@ native-dialog = { version = "0.6.3", features = ["windows_dpi_awareness"] }
 nom = "7.1.2"
 polars = { version = "0.26.1", features = ["parquet", "lazy"] }
 rand = "0.8.5"
+serde = { version = "1.0.152", features = ["derive"] }
+serde_yaml = "0.9.17"
 simplelog = "0.12.0"
 tar = "0.4.38"

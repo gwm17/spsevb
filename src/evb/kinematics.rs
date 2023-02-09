@@ -1,4 +1,5 @@
 use super::nuclear_data::MassMap;
+use serde::{Serialize, Deserialize};
 
 const C: f64 = 2.99792458e8; //speed of light in m/s
 const QBRHO2P: f64 = C * 1.0e-9; //convert charge (in units of e) * B (kG (tesla)) * rho (cm) to momentum in MeV
@@ -6,7 +7,7 @@ const SPS_DISPERSION: f64 = 1.96; // x-position/rho
 const SPS_MAGNIFICATION: f64 = 0.39; // in x-position
 const SPS_DETECTOR_WIRE_DIST: f64 = 4.28625; //Distance between anode wires in SPS focal plane detector cm
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KineParameters {
     pub target_z: u32,
     pub target_a: u32,

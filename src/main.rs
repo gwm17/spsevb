@@ -11,6 +11,7 @@ extern crate simplelog;
 extern crate eframe;
 extern crate egui_extras;
 extern crate native_dialog;
+extern crate serde_yaml;
 
 mod evb;
 mod ui;

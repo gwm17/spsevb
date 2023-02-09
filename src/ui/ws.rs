@@ -2,6 +2,7 @@ use std::error::Error;
 use std::fmt::Display;
 use std::fs;
 use std::path::{Path, PathBuf};
+use serde::{Serialize, Deserialize};
 
 const RAW_BINARY: &str = "raw_binary";
 const TEMP_BINARY: &str = "temp_binary";
@@ -31,7 +32,7 @@ impl Display for WorkspaceError {
 
 impl Error for WorkspaceError {}
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Workspace {
     parent_dir: PathBuf,
 }
