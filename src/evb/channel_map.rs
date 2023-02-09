@@ -4,12 +4,13 @@ use std::io::prelude::*;
 use std::fs::File;
 use std::path::Path;
 use std::num::ParseIntError;
-use strum_macros::AsRefStr;
+use strum::IntoEnumIterator;
+use strum_macros::{AsRefStr, EnumIter};
 
 use super::compass_data::generate_board_channel_uuid;
 
 //Channels to be mapped in the ChannelMap, each variant is the verbatim keyword in the channel map
-#[derive(Debug, Clone, PartialEq, AsRefStr)]
+#[derive(Debug, Clone, PartialEq, AsRefStr, EnumIter)]
 pub enum SPSChannelType {
     //Detector fields -> can be channel mapped
     AnodeFront,
@@ -27,17 +28,7 @@ pub enum SPSChannelType {
 
 impl SPSChannelType {
     pub fn get_channel_vec() -> Vec<SPSChannelType> {
-        vec![
-            SPSChannelType::AnodeFront,
-            SPSChannelType::AnodeBack,
-            SPSChannelType::ScintLeft,
-            SPSChannelType::ScintRight,
-            SPSChannelType::Cathode,
-            SPSChannelType::DelayFrontLeft,
-            SPSChannelType::DelayFrontRight,
-            SPSChannelType::DelayBackLeft,
-            SPSChannelType::DelayBackRight
-        ]
+        SPSChannelType::iter().collect()
     }
 }
 

@@ -5,11 +5,12 @@ use super::channel_map::{ChannelMap, SPSChannelType};
 use std::collections::HashMap;
 use std::hash::Hash;
 
-use strum_macros::{EnumVariantNames, AsRefStr};
+use strum::IntoEnumIterator;
+use strum_macros::{EnumIter, AsRefStr};
 
 const INVALID_VALUE: f64 = -1.0e6;
 
-#[derive(Debug, Clone, Hash, Eq, PartialEq, EnumVariantNames, AsRefStr)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, EnumIter, AsRefStr)]
 pub enum SPSDataField {
     AnodeFrontEnergy,
     AnodeFrontShort,
@@ -47,39 +48,7 @@ pub enum SPSDataField {
 impl SPSDataField {
     //Returns a list of fields for iterating over
     pub fn get_field_vec() -> Vec<SPSDataField> {
-        vec![
-            SPSDataField::AnodeFrontEnergy,
-            SPSDataField::AnodeFrontShort,
-            SPSDataField::AnodeFrontTime,
-            SPSDataField::AnodeBackEnergy,
-            SPSDataField::AnodeBackShort,
-            SPSDataField::AnodeBackTime,
-            SPSDataField::ScintLeftEnergy,
-            SPSDataField::ScintLeftShort,
-            SPSDataField::ScintLeftTime,
-            SPSDataField::ScintRightEnergy,
-            SPSDataField::ScintRightShort,
-            SPSDataField::ScintRightTime,
-            SPSDataField::CathodeEnergy,
-            SPSDataField::CathodeShort,
-            SPSDataField::CathodeTime,
-            SPSDataField::DelayFrontLeftEnergy,
-            SPSDataField::DelayFrontLeftShort,
-            SPSDataField::DelayFrontLeftTime,
-            SPSDataField::DelayFrontRightEnergy,
-            SPSDataField::DelayFrontRightShort,
-            SPSDataField::DelayFrontRightTime,
-            SPSDataField::DelayBackLeftEnergy,
-            SPSDataField::DelayBackLeftShort,
-            SPSDataField::DelayBackLeftTime,
-            SPSDataField::DelayBackRightEnergy,
-            SPSDataField::DelayBackRightShort,
-            SPSDataField::DelayBackRightTime,
-            SPSDataField::X1,
-            SPSDataField::X2,
-            SPSDataField::Xavg,
-            SPSDataField::Theta                
-        ]
+        SPSDataField::iter().collect()
     }
 }
 
