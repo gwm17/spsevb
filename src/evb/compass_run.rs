@@ -47,7 +47,7 @@ fn make_dataframe(data: Vec<SPSData>) -> Result<DataFrame, PolarsError> {
             |f| -> (SPSDataField, PrimitiveChunkedBuilder<Float64Type>) {
                 (
                     f.clone(),
-                    PrimitiveChunkedBuilder::<Float64Type>::new(&f.get_column_name(), data.len()),
+                    PrimitiveChunkedBuilder::<Float64Type>::new(f.as_ref(), data.len()),
                 )
             },
         )

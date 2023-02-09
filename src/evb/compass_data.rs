@@ -1,4 +1,4 @@
-
+use bitflags::bitflags;
 use rand::Rng;
 bitflags! {
     pub struct CompassDataType: u16 {

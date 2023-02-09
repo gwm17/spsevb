@@ -5,27 +5,11 @@ use super::channel_map::{ChannelMap, SPSChannelType};
 use std::collections::HashMap;
 use std::hash::Hash;
 
+use strum_macros::{EnumVariantNames, AsRefStr};
+
 const INVALID_VALUE: f64 = -1.0e6;
 
-const ANODE_FRONT_COLUMN: &str = "AnodeFront";
-const ANODE_BACK_COLUMN: &str = "AnodeBack";
-const SCINT_LEFT_COLUMN: &str = "ScintLeft";
-const SCINT_RIGHT_COLUMN: &str = "ScintRight";
-const DELAY_FRONT_LEFT_COLUMN: &str = "DelayFrontLeft";
-const DELAY_FRONT_RIGHT_COLUMN: &str = "DelayFrontRight";
-const DELAY_BACK_LEFT_COLUMN: &str = "DelayBackLeft";
-const DELAY_BACK_RIGHT_COLUMN: &str = "DelayBackRight";
-const CATHODE_COLUMN: &str  = "Cathode";
-const X1_COLUMN: &str = "X1";
-const X2_COLUMN: &str = "X2";
-const XAVG_COLUMN: &str = "Xavg";
-const THETA_COLUMN: &str = "Theta";
-
-const ENERGY_MOD: &str = "ENERGY";
-const SHORT_MOD: &str = "SHORT";
-const TIME_MOD: &str = "TIME";
-
-#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, EnumVariantNames, AsRefStr)]
 pub enum SPSDataField {
     AnodeFrontEnergy,
     AnodeFrontShort,
@@ -61,43 +45,6 @@ pub enum SPSDataField {
 }
 
 impl SPSDataField {
-    //Returns a String with the name for the associated polars df column
-    pub fn get_column_name(&self) -> String {
-        match self {
-            SPSDataField::AnodeFrontEnergy      => format!("{}{}", ANODE_FRONT_COLUMN, ENERGY_MOD),
-            SPSDataField::AnodeFrontShort       => format!("{}{}", ANODE_FRONT_COLUMN, SHORT_MOD),
-            SPSDataField::AnodeFrontTime        => format!("{}{}", ANODE_FRONT_COLUMN, TIME_MOD),
-            SPSDataField::AnodeBackEnergy       => format!("{}{}", ANODE_BACK_COLUMN, ENERGY_MOD),
-            SPSDataField::AnodeBackShort        => format!("{}{}", ANODE_BACK_COLUMN, SHORT_MOD),
-            SPSDataField::AnodeBackTime         => format!("{}{}", ANODE_BACK_COLUMN, TIME_MOD),
-            SPSDataField::ScintLeftEnergy       => format!("{}{}", SCINT_LEFT_COLUMN, ENERGY_MOD),
-            SPSDataField::ScintLeftShort        => format!("{}{}", SCINT_LEFT_COLUMN, SHORT_MOD),
-            SPSDataField::ScintLeftTime         => format!("{}{}", SCINT_LEFT_COLUMN, TIME_MOD),
-            SPSDataField::ScintRightEnergy      => format!("{}{}", SCINT_RIGHT_COLUMN, ENERGY_MOD),
-            SPSDataField::ScintRightShort       => format!("{}{}", SCINT_RIGHT_COLUMN, SHORT_MOD),
-            SPSDataField::ScintRightTime        => format!("{}{}", SCINT_RIGHT_COLUMN, TIME_MOD),
-            SPSDataField::CathodeEnergy         => format!("{}{}", CATHODE_COLUMN, ENERGY_MOD),
-            SPSDataField::CathodeShort          => format!("{}{}", CATHODE_COLUMN, SHORT_MOD),
-            SPSDataField::CathodeTime           => format!("{}{}", CATHODE_COLUMN, TIME_MOD),
-            SPSDataField::DelayFrontLeftEnergy  => format!("{}{}", DELAY_FRONT_LEFT_COLUMN, ENERGY_MOD),
-            SPSDataField::DelayFrontLeftShort   => format!("{}{}", DELAY_FRONT_LEFT_COLUMN, SHORT_MOD),
-            SPSDataField::DelayFrontLeftTime    => format!("{}{}", DELAY_FRONT_LEFT_COLUMN, TIME_MOD),
-            SPSDataField::DelayFrontRightEnergy => format!("{}{}", DELAY_FRONT_RIGHT_COLUMN, ENERGY_MOD),
-            SPSDataField::DelayFrontRightShort  => format!("{}{}", DELAY_FRONT_RIGHT_COLUMN, SHORT_MOD),
-            SPSDataField::DelayFrontRightTime   => format!("{}{}", DELAY_FRONT_RIGHT_COLUMN, TIME_MOD),
-            SPSDataField::DelayBackLeftEnergy   => format!("{}{}", DELAY_BACK_LEFT_COLUMN, ENERGY_MOD),
-            SPSDataField::DelayBackLeftShort    => format!("{}{}", DELAY_BACK_LEFT_COLUMN, SHORT_MOD),
-            SPSDataField::DelayBackLeftTime     => format!("{}{}", DELAY_BACK_LEFT_COLUMN, TIME_MOD),
-            SPSDataField::DelayBackRightEnergy  => format!("{}{}", DELAY_BACK_RIGHT_COLUMN, ENERGY_MOD),
-            SPSDataField::DelayBackRightShort   => format!("{}{}", DELAY_BACK_RIGHT_COLUMN, SHORT_MOD),
-            SPSDataField::DelayBackRightTime    => format!("{}{}", DELAY_BACK_RIGHT_COLUMN, TIME_MOD),
-            SPSDataField::X1                    => X1_COLUMN.to_string(),
-            SPSDataField::X2                    => X2_COLUMN.to_string(),
-            SPSDataField::Xavg                  => XAVG_COLUMN.to_string(),
-            SPSDataField::Theta                 => THETA_COLUMN.to_string()
-        }
-    }
-
     //Returns a list of fields for iterating over
     pub fn get_field_vec() -> Vec<SPSDataField> {
         vec![

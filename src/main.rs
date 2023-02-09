@@ -1,18 +1,3 @@
-
-#[macro_use]
-extern crate bitflags;
-extern crate rand;
-extern crate tar;
-extern crate flate2;
-extern crate nom;
-extern crate polars;
-extern crate log;
-extern crate simplelog;
-extern crate eframe;
-extern crate egui_extras;
-extern crate native_dialog;
-extern crate serde_yaml;
-
 mod evb;
 mod ui;
 

@@ -4,25 +4,12 @@ use std::io::prelude::*;
 use std::fs::File;
 use std::path::Path;
 use std::num::ParseIntError;
+use strum_macros::AsRefStr;
 
 use super::compass_data::generate_board_channel_uuid;
 
-//Define channel map keywords associated with memory locations
-//Must be a keyword associated with EACH SPSChannelType that can be present in a channel map
-//Non channel map fields (i.e. physics values) do not need a keyword, only a column name
-const ANODE_FRONT_KEYWORD: &str = "ANODEFRONT";
-const ANODE_BACK_KEYWORD: &str = "ANODEBACK";
-const SCINT_LEFT_KEYWORD: &str = "SCINTLEFT";
-const SCINT_RIGHT_KEYWORD: &str = "SCINTRIGHT";
-const DELAY_FRONT_LEFT_KEYWORD: &str = "DELAYFRONTLEFT";
-const DELAY_FRONT_RIGHT_KEYWORD: &str = "DELAYFRONTRIGHT";
-const DELAY_BACK_LEFT_KEYWORD: &str = "DELAYBACKLEFT";
-const DELAY_BACK_RIGHT_KEYWORD: &str = "DELAYBACKRIGHT";
-const CATHODE_KEYWORD: &str  = "CATHODE";
-const NONE_CHANNEL_STRING: &str =  "InvalidChannel";
-
-//Channels to be mapped in the ChannelMap
-#[derive(Debug, Clone, PartialEq)]
+//Channels to be mapped in the ChannelMap, each variant is the verbatim keyword in the channel map
+#[derive(Debug, Clone, PartialEq, AsRefStr)]
 pub enum SPSChannelType {
     //Detector fields -> can be channel mapped
     AnodeFront,
@@ -39,21 +26,6 @@ pub enum SPSChannelType {
 }
 
 impl SPSChannelType {
-    pub fn get_keyword(&self) -> &str {
-        match self {
-            SPSChannelType::AnodeFront => ANODE_FRONT_KEYWORD,
-            SPSChannelType::AnodeBack => ANODE_BACK_KEYWORD,
-            SPSChannelType::ScintLeft => SCINT_LEFT_KEYWORD,
-            SPSChannelType::ScintRight => SCINT_RIGHT_KEYWORD,
-            SPSChannelType::Cathode => CATHODE_KEYWORD,
-            SPSChannelType::DelayFrontLeft => DELAY_FRONT_LEFT_KEYWORD,
-            SPSChannelType::DelayFrontRight => DELAY_FRONT_RIGHT_KEYWORD,
-            SPSChannelType::DelayBackLeft => DELAY_BACK_LEFT_KEYWORD,
-            SPSChannelType::DelayBackRight => DELAY_BACK_RIGHT_KEYWORD,
-            _ => NONE_CHANNEL_STRING
-        }
-    }
-
     pub fn get_channel_vec() -> Vec<SPSChannelType> {
         vec![
             SPSChannelType::AnodeFront,
@@ -120,18 +92,18 @@ impl ChannelMap {
         let mut found_flag;
         for line in file_contents.lines() {
             let entries: Vec<&str> = line.split(" ").collect();
-            if entries.len() != 4 {
+            if entries.len() != 3 {
                 continue;
             }
 
             let board: u32 = entries[0].parse()?;
             let channel: u32 = entries[1].parse()?;
-            let component = entries[3];
+            let component = entries[2];
 
             found_flag = false;
 
             for channel_type in &channel_types {
-                if component == channel_type.get_keyword() {
+                if component == channel_type.as_ref() {
                     cmap.map.insert(generate_board_channel_uuid(&board, &channel), channel_type.clone());
                     found_flag = true;
                     break;

@@ -2787,6 +2787,8 @@ dependencies = [
  "serde",
  "serde_yaml",
  "simplelog",
+ "strum",
+ "strum_macros",
  "tar",
 ]
 
