@@ -9,6 +9,7 @@ use tar::Archive;
 
 use super::channel_map::ChannelMap;
 use super::scaler_list::ScalerList;
+use super::shift_map::ShiftMap;
 use super::compass_file::CompassFile;
 use super::event_builder::EventBuilder;
 use super::sps_data::{SPSData, SPSDataField};
@@ -17,12 +18,15 @@ use super::nuclear_data::MassMap;
 use super::kinematics::{KineParameters, calculate_weights};
 
 #[derive(Debug)]
-struct RunParams {
+struct RunParams<'a> {
     pub run_archive_path: PathBuf,
     pub unpack_dir_path: PathBuf,
     pub output_file_path: PathBuf,
-    pub scalerlist_file_path: PathBuf,
+    pub scalerlist_file_path: Option<PathBuf>,
     pub scalerout_file_path: PathBuf,
+    pub nuc_map: &'a MassMap,
+    pub channel_map: &'a ChannelMap,
+    pub shift_map: &'a Option<ShiftMap>,
     pub coincidence_window: f64,
 }
 
@@ -68,29 +72,39 @@ fn make_dataframe(data: Vec<SPSData>) -> Result<DataFrame, PolarsError> {
     DataFrame::new(columns)
 }
 
-fn process_run(params: RunParams, k_params: &KineParameters, nuc_map: &MassMap, channel_map: &ChannelMap, progress: Arc<Mutex<f32>>) -> Result<(), EVBError> {
+fn process_run(params: RunParams, k_params: &KineParameters, progress: Arc<Mutex<f32>>) -> Result<(), EVBError> {
     clean_up_unpack_dir(&params.unpack_dir_path)?;
 
     let archive_file = File::open(&params.run_archive_path)?;
     let mut decompressed_archive = Archive::new(GzDecoder::new(archive_file));
     decompressed_archive.unpack(&params.unpack_dir_path)?;
 
-    let mut scaler_list = ScalerList::new(&params.scalerlist_file_path)?;
+    let mut scaler_list = match &params.scalerlist_file_path {
+        Some(path) => Some(ScalerList::new(path)?),
+        None => None
+    };
 
     let mut files: Vec<CompassFile> = vec![];
     let mut total_count: u64 = 0;
     for item in params.unpack_dir_path.read_dir()? {
         let filepath = &item?.path();
-        if !scaler_list.read_scaler(filepath) {
-            files.push(CompassFile::new(filepath)?);
-            files.last_mut().unwrap().set_hit_used();
-            files.last_mut().unwrap().get_top_hit()?;
-            total_count += files.last().unwrap().get_number_of_hits();
-        }
+        match &mut scaler_list {
+            Some(list) => {
+                if list.read_scaler(filepath) {
+                    continue
+                }
+            }
+            None => ()
+        };
+        
+        files.push(CompassFile::new(filepath, params.shift_map)?);
+        files.last_mut().unwrap().set_hit_used();
+        files.last_mut().unwrap().get_top_hit()?;
+        total_count += files.last().unwrap().get_number_of_hits();
     }
 
     let mut evb = EventBuilder::new(&params.coincidence_window);
-    let x_weights = calculate_weights(&k_params, &nuc_map);
+    let x_weights = calculate_weights(&k_params, params.nuc_map);
 
     let mut earliest_file_index: Option<usize>;
     let mut analyzed_data: Vec<SPSData> = vec![];
@@ -132,7 +146,7 @@ fn process_run(params: RunParams, k_params: &KineParameters, nuc_map: &MassMap, 
         }
 
         if evb.is_event_ready() {
-            let data = SPSData::new(evb.get_ready_event(), &channel_map, x_weights);
+            let data = SPSData::new(evb.get_ready_event(), params.channel_map, x_weights);
             if !data.is_default() {
                 analyzed_data.push(data);
             }
@@ -153,7 +167,10 @@ fn process_run(params: RunParams, k_params: &KineParameters, nuc_map: &MassMap, 
     let mut df = make_dataframe(analyzed_data)?;
     let mut output_file = File::create(&params.output_file_path)?;
     ParquetWriter::new(&mut output_file).finish(&mut df)?;
-    scaler_list.write_scalers(&params.scalerout_file_path)?;
+    match scaler_list {
+        Some(list) => list.write_scalers(&params.scalerout_file_path)?,
+        None => ()
+    };
 
     //To be safe, manually drop all files in unpack dir before deleting all the files
     drop(files);
@@ -168,7 +185,8 @@ pub struct ProcessParams {
     pub unpack_dir: PathBuf,
     pub output_dir: PathBuf,
     pub channel_map_filepath: PathBuf,
-    pub scaler_list_filepath: PathBuf,
+    pub scaler_list_filepath: Option<PathBuf>,
+    pub shift_map_filepath: Option<PathBuf>,
     pub coincidence_window: f64,
     pub run_min: i32,
     pub run_max: i32
@@ -177,6 +195,10 @@ pub struct ProcessParams {
 pub fn process_runs(params: ProcessParams, k_params: KineParameters, progress: Arc<Mutex<f32>>) -> Result<(), EVBError> {
     let channel_map = ChannelMap::new(&params.channel_map_filepath)?;
     let mass_map = MassMap::new()?;
+    let shift_map = match params.shift_map_filepath {
+        Some(path) => Some(ShiftMap::new(&path)?),
+        None => None
+    };
     for run in params.run_min..params.run_max {
         let local_params =  RunParams {
             run_archive_path: params.archive_dir.join(format!("run_{}.tar.gz", run)),
@@ -184,6 +206,9 @@ pub fn process_runs(params: ProcessParams, k_params: KineParameters, progress: A
             output_file_path: params.output_dir.join(format!("run_{}.parquet", run)),
             scalerlist_file_path: params.scaler_list_filepath.clone(),
             scalerout_file_path: params.output_dir.join(format!("run_{}_scalers.txt", run)),
+            nuc_map: &mass_map,
+            channel_map: &channel_map,
+            shift_map: &shift_map,
             coincidence_window: params.coincidence_window.clone()
         };
 
@@ -193,7 +218,7 @@ pub fn process_runs(params: ProcessParams, k_params: KineParameters, progress: A
         };
 
         if local_params.run_archive_path.exists() {
-            process_run(local_params, &k_params, &mass_map, &channel_map, progress.clone())?;
+            process_run(local_params, &k_params, progress.clone())?;
         }
     }
 

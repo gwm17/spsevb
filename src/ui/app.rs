@@ -22,6 +22,7 @@ struct AppParams {
     pub workspace: Option<Workspace>,
     pub channel_map: Option<PathBuf>,
     pub scaler_list: Option<PathBuf>,
+    pub shift_map: Option<PathBuf>,
     pub kinematics: KineParameters,
     pub coincidence_window: f64,
     pub run_min: i32,
@@ -30,7 +31,7 @@ struct AppParams {
 
 impl Default for AppParams {
     fn default() -> Self {
-        AppParams { workspace: None, channel_map: None, scaler_list: None, kinematics: KineParameters::default(), coincidence_window: 3.0e3, run_min: 0, run_max: 0 }
+        AppParams { workspace: None, channel_map: None, scaler_list: None, shift_map: None, kinematics: KineParameters::default(), coincidence_window: 3.0e3, run_min: 0, run_max: 0 }
     }
 }
 
@@ -65,7 +66,8 @@ impl EVBApp {
                 unpack_dir: self.parameters.workspace.as_ref().unwrap().get_unpack_dir()?,
                 output_dir: self.parameters.workspace.as_ref().unwrap().get_output_dir()?,
                 channel_map_filepath: self.parameters.channel_map.as_ref().unwrap().clone(),
-                scaler_list_filepath: self.parameters.scaler_list.as_ref().unwrap().clone(),
+                scaler_list_filepath: self.parameters.scaler_list.clone(),
+                shift_map_filepath: self.parameters.shift_map.clone(),
                 coincidence_window: self.parameters.coincidence_window,
                 run_min: self.parameters.run_min,
                 run_max: self.parameters.run_max + 1, //Make it [run_min, run_max]
@@ -218,6 +220,26 @@ impl App for EVBApp {
                 ui.label("Scaler List: ");
                 ui.label(match &self.parameters.scaler_list {
                     Some(real_path) => real_path.as_path().to_str().expect("Cannot display scaler list!"),
+                    None => "None"
+                });
+                if ui.button("Open").clicked() {
+                    let result = native_dialog::FileDialog::new()
+                                 .set_location(&std::env::current_dir().expect("Couldn't access runtime directory"))
+                                 .add_filter("Text File", &["txt"])
+                                 .show_open_single_file();
+                    match result {
+                        Ok(path) => match path {
+                            Some(real_path) => self.parameters.scaler_list = Some(real_path),
+                            None => ()
+                        }
+                        Err(_) => error!("File dialog error!")
+                    }
+                }
+                ui.end_row();
+
+                ui.label("Shift Map: ");
+                ui.label(match &self.parameters.shift_map {
+                    Some(real_path) => real_path.as_path().to_str().expect("Cannot display shift map!"),
                     None => "None"
                 });
                 if ui.button("Open").clicked() {

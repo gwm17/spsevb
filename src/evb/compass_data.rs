@@ -1,5 +1,7 @@
 use bitflags::bitflags;
 use rand::Rng;
+use super::shift_map::ShiftMap;
+
 bitflags! {
     pub struct CompassDataType: u16 {
         const ENERGY = 0x0001;
@@ -47,15 +49,19 @@ pub struct CompassData {
 }
 
 impl CompassData {
-    pub fn new(raw: &RawCompassData) -> CompassData {
+    pub fn new(raw: &RawCompassData, shifts: &Option<ShiftMap>) -> Self {
         let mut rng = rand::thread_rng();
         let board = raw.board as u32;
         let channel = raw.channel as u32;
+        let id = generate_board_channel_uuid(&board, &channel);
         CompassData {
-            uuid: generate_board_channel_uuid(&board, &channel),
+            uuid: id,
             energy: raw.energy as f64 + rng.gen::<f64>(),
             energy_short: raw.energy_short as f64 + rng.gen::<f64>(),
-            timestamp: raw.timestamp as f64 * 1.0e-3
+            timestamp: match shifts {
+                Some(map) => raw.timestamp as f64 * 1.0e-3 + map.get_timeshift(&id),
+                None => raw.timestamp as f64 * 1.0e-3
+            }
         }
     }
 

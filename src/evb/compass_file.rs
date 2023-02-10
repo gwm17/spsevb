@@ -4,6 +4,7 @@ use std::io::BufReader;
 use std::path;
 use super::compass_data::{CompassDataType, RawCompassData, CompassData};
 use super::error::EVBError;
+use super::shift_map::ShiftMap;
 
 use nom::number::complete::*;
 
@@ -31,18 +32,19 @@ fn parse_u64(buffer: &[u8]) -> Result<(&[u8], u64), EVBError> {
 }
 
 #[derive(Debug)]
-pub struct CompassFile {
+pub struct CompassFile<'a> {
     file_handle: BufReader<File>,
     size_bytes: u64,
     data_type: CompassDataType,
     data_size_bytes: usize,
     current_hit: CompassData,
+    shift_map: &'a Option<ShiftMap>,
     is_used: bool,
     is_eof: bool
 }
 
-impl CompassFile {
-    pub fn new(path: &path::Path) -> Result<CompassFile, EVBError> {
+impl<'a> CompassFile<'a> {
+    pub fn new(path: &path::Path, shifts: &'a Option<ShiftMap>) -> Result<CompassFile<'a>, EVBError> {
         let mut file: File = File::open(path)?;
         let total_size = file.metadata()?.len();
 
@@ -76,6 +78,7 @@ impl CompassFile {
             data_type: datatype,
             data_size_bytes: datasize,
             current_hit: CompassData::default(),
+            shift_map: shifts,
             is_used: false,
             is_eof: false
         });
@@ -119,7 +122,7 @@ impl CompassFile {
         }
         let (_dataslice, _flags) = parse_u32(dataslice)?;
 
-        Ok(CompassData::new(&raw_data))
+        Ok(CompassData::new(&raw_data, &self.shift_map))
     }
 
     pub fn is_eof(&self) -> bool {

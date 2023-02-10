@@ -1,5 +1,4 @@
-
-use super::compass_data::{CompassData};
+use super::compass_data::CompassData;
 use super::channel_map::{ChannelMap, SPSChannelType};
 
 use std::collections::HashMap;

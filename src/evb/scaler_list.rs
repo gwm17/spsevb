@@ -62,7 +62,7 @@ impl ScalerList {
                                 .expect("Could not parse file name at ScalerList::read_scaler")
                                 .starts_with(&scaler.file_pattern)
                     {
-                        if let Ok(compass_rep) = CompassFile::new(filepath) {
+                        if let Ok(compass_rep) = CompassFile::new(filepath, &None) {
                             scaler.value = compass_rep.get_number_of_hits();
                             return true
                         }

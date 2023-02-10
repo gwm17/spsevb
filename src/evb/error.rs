@@ -3,6 +3,7 @@ use polars::error::PolarsError;
 use std::error::Error;
 use super::channel_map::{ChannelMapError};
 use super::nuclear_data::MassError;
+use super::shift_map::ShiftError;
 use std::fmt::Display;
 
 #[derive(Debug)]
@@ -14,6 +15,7 @@ pub enum EVBError {
     ChannelError(ChannelMapError),
     DataFrameError(PolarsError),
     MassMapError(MassError),
+    ShiftMapError(ShiftError),
     SyncError
 }
 
@@ -47,6 +49,12 @@ impl From<MassError> for EVBError {
     }
 }
 
+impl From<ShiftError> for EVBError {
+    fn from(value: ShiftError) -> Self {
+        EVBError::ShiftMapError(value)
+    }
+}
+
 impl Display for EVBError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -57,6 +65,7 @@ impl Display for EVBError {
             EVBError::ChannelError(x) => write!(f, "Run had an error occur with the channel map: {}", x),
             EVBError::DataFrameError(x) => write!(f, "Run had an error using polars: {}", x),
             EVBError::MassMapError(x) => write!(f, "Run had an error with the mass data: {}", x),
+            EVBError::ShiftMapError(x) => write!(f, "Run had an error with the shift map: {}", x),
             EVBError::SyncError => write!(f, "Run was unable to access shared progress resource")
         }
     }
