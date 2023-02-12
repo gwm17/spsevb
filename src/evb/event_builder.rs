@@ -39,7 +39,8 @@ impl EventBuilder {
         }
     }
 
-    pub fn get_ready_event(&self) -> Vec<CompassData> {
+    pub fn get_ready_event(&mut self) -> Vec<CompassData> {
+        self.is_event_ready = false;
         return self.ready_event.clone();
     }
 }

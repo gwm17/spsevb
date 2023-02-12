@@ -82,11 +82,12 @@ impl ChannelMap {
 
         let mut found_flag;
         for line in file_contents.lines() {
-            let entries: Vec<&str> = line.split(" ").collect();
+            println!("{}", line);
+            let entries: Vec<&str> = line.split_whitespace().collect();
+            println!("entries: {:?}", entries);
             if entries.len() != 3 {
                 continue;
             }
-
             let board: u32 = entries[0].parse()?;
             let channel: u32 = entries[1].parse()?;
             let component = entries[2];

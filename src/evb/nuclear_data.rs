@@ -64,7 +64,8 @@ fn generate_nucleus_id(z: &u32, a: &u32) -> u32 {
     if z > a { z * z + z + a } else { a * a + z }
 }
 
-
+const U2MEV: f64 = 931.49410242;
+const ELECTRON_MASS: f64 = 0.51099895000; //MeV
 
 #[derive(Debug, Clone, Default)]
 pub struct MassMap {
@@ -96,6 +97,7 @@ impl MassMap {
                     data.a = entries[2].parse()?;
                     data.element = String::from(entries[3]);
                     data.isotope = format!("{}{}", data.a, data.element);
+                    data.mass = (entries[4].parse::<f64>()? + 1.0e-6 * entries[5].parse::<f64>()?) * U2MEV - (data.z as f64) * ELECTRON_MASS;
                     self.map.insert(generate_nucleus_id(&data.z, &data.a), data);
                 },
                 Err(_) => return Err(MassError::MassFileParseError)
