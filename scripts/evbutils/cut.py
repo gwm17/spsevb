@@ -1,6 +1,7 @@
 from matplotlib.path import Path
 import numpy as np
 from typing import Optional
+from numpy.typing import ArrayLike
 import json
 
 """
@@ -52,8 +53,11 @@ class Cut2D:
     def is_point_inside(self, x: float, y: float) -> bool:
         return self.path.contains_point((x,  y))
 
-    def is_arr_inside(self, points: list[tuple[float, float]]) -> bool:
+    def is_arr_inside(self, points: list[tuple[float, float]]) -> list[bool]:
         return self.path.contains_points(points)
+
+    def is_cols_inside(self, xcol: ArrayLike, ycol: ArrayLike) -> list[bool]:
+        return [self.path.contains_point((x, y)) for x, y in (xcol, ycol)]
 
     def get_vertices(self) -> np.ndarray:
         self.path.vertices
