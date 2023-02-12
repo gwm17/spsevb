@@ -82,9 +82,7 @@ impl ChannelMap {
 
         let mut found_flag;
         for line in file_contents.lines() {
-            println!("{}", line);
             let entries: Vec<&str> = line.split_whitespace().collect();
-            println!("entries: {:?}", entries);
             if entries.len() != 3 {
                 continue;
             }
