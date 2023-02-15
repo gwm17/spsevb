@@ -1,6 +1,7 @@
 from matplotlib.path import Path
+from polars import Series
 import numpy as np
-from typing import Optional
+from typing import Optional, Sequence
 from numpy.typing import ArrayLike
 import json
 
@@ -56,8 +57,8 @@ class Cut2D:
     def is_arr_inside(self, points: list[tuple[float, float]]) -> list[bool]:
         return self.path.contains_points(points)
 
-    def is_cols_inside(self, xcol: ArrayLike, ycol: ArrayLike) -> list[bool]:
-        return [self.path.contains_point((x, y)) for x, y in (xcol, ycol)]
+    def is_cols_inside(self, columns: Series) -> Series:
+        return Series(values=self.path.contains_points(columns.to_list()))
 
     def get_vertices(self) -> np.ndarray:
         self.path.vertices
@@ -66,7 +67,7 @@ class Cut2D:
         return json.dumps(self, default=lambda obj: {"name": obj.name, "vertices": obj.path.vertices.tolist()} )
 
 def write_cut_json(cut: Cut2D, filepath: str) -> bool:
-    json_str = json.dumps(cut)
+    json_str = cut.to_json_str()
     try:
         with open(filepath, "w") as output:
             output.write(json_str)
