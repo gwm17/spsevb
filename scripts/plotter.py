@@ -21,7 +21,6 @@ def merge_runs_to_dataframe(run_min: int, run_max: int) -> polars.DataFrame:
 #Example plotter making an xavg histogram with an ede gate
 def plot(run_min: int, run_max: int):
     df = merge_runs_to_dataframe(run_min, run_max)
-    print(df)
     ede_cut = load_cut_json("ede_cut.json")
     if ede_cut is None:
         print("blerk, cut invalid couldn't plot")
@@ -31,7 +30,6 @@ def plot(run_min: int, run_max: int):
     df_ede = df.filter(polars.col("ScintLeftEnergy").arr.concat("AnodeBackEnergy").map(ede_cut.is_cols_inside))
 
     xavg = df_ede.select("Xavg").to_numpy()
-    print(df_ede.select(["ScintLeftEnergy","AnodeBackEnergy"]))
 
     fig, ax = pyplot.subplots(1,1)
     ax.hist(xavg, bins=300, range=(-300.0, 300.0))

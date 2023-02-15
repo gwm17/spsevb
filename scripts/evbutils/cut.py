@@ -1,7 +1,7 @@
 from matplotlib.path import Path
 from polars import Series
 import numpy as np
-from typing import Optional, Sequence
+from typing import Optional
 from numpy.typing import ArrayLike
 import json
 
