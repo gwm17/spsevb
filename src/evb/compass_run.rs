@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fs::File;
 use std::path::{PathBuf, Path};
 
@@ -45,7 +45,8 @@ fn clean_up_unpack_dir(unpack_dir: &Path) -> Result<(), EVBError> {
 
 fn make_dataframe(data: Vec<SPSData>) -> Result<DataFrame, PolarsError> {
     let fields = SPSDataField::get_field_vec();
-    let mut column_map: HashMap<SPSDataField, PrimitiveChunkedBuilder<Float64Type>> = fields
+    //use BTreeMap to enforce order of columns (allows for appending dataframes)
+    let mut column_map: BTreeMap<SPSDataField, PrimitiveChunkedBuilder<Float64Type>> = fields
         .into_iter()
         .map(
             |f| -> (SPSDataField, PrimitiveChunkedBuilder<Float64Type>) {

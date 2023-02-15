@@ -9,7 +9,7 @@ use strum_macros::{EnumIter, AsRefStr};
 
 const INVALID_VALUE: f64 = -1.0e6;
 
-#[derive(Debug, Clone, Hash, Eq, PartialEq, EnumIter, AsRefStr)]
+#[derive(Debug, Clone, Hash, Eq, PartialOrd, Ord, PartialEq, EnumIter, AsRefStr)]
 pub enum SPSDataField {
     AnodeFrontEnergy,
     AnodeFrontShort,
