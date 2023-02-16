@@ -1,7 +1,8 @@
 import polars
 from matplotlib import pyplot, widgets
-from evbutils import load_cut_json, write_cut_json, CutHandler
+from evbutils import load_cut_json, write_cut_json, CutHandler, Histogrammer
 from pathlib import Path
+from typing import Optional
 
 DATA_DIRECTORY: str = "/media/data/gwm17/spsevb_test/built"
 
@@ -18,21 +19,38 @@ def merge_runs_to_dataframe(run_min: int, run_max: int) -> polars.DataFrame:
     total_df.rechunk()
     return total_df
 
+def get_dataframe(run_num: int) -> Optional[polars.DataFrame]:
+    data_path = Path(DATA_DIRECTORY)
+    path = data_path / f"run_{run_num}.parquet"
+    if path.exists():
+        return polars.read_parquet(path)
+    else:
+        return None
+
 #Example plotter making an xavg histogram with an ede gate
 def plot(run_min: int, run_max: int):
-    df = merge_runs_to_dataframe(run_min, run_max)
+    #df = merge_runs_to_dataframe(run_min, run_max)
     ede_cut = load_cut_json("ede_cut.json")
     if ede_cut is None:
         print("blerk, cut invalid couldn't plot")
         return
 
-    #Notes on filtering with cuts: You have to concat the two columns and then map them with the cut function
-    df_ede = df.filter(polars.col("ScintLeftEnergy").arr.concat("AnodeBackEnergy").map(ede_cut.is_cols_inside))
+    grammer = Histogrammer()
+    grammer.add_hist1d("xavg", 600, (-300.0, 300.0))
 
-    xavg = df_ede.select("Xavg").to_numpy()
+    for run in range(run_min, run_max+1):
+        df = get_dataframe(run)
+        df_ede = df.filter(polars.col("ScintLeftEnergy").arr.concat("AnodeBackEnergy").map(ede_cut.is_cols_inside))
+        grammer.fill_hist1d("xavg", df_ede.select("Xavg").to_numpy())
+    #Notes on filtering with cuts: You have to concat the two columns and then map them with the cut function
+    #df_ede = df.filter(polars.col("ScintLeftEnergy").arr.concat("AnodeBackEnergy").map(ede_cut.is_cols_inside))
+
+    #xavg = df_ede.select("Xavg").to_numpy()
 
     fig, ax = pyplot.subplots(1,1)
-    ax.hist(xavg, bins=300, range=(-300.0, 300.0))
+    #ax.hist(xavg, bins=300, range=(-300.0, 300.0))
+    hist = grammer.get_hist1d("xavg")
+    ax.stairs(hist.counts, hist.bins)
     ax.set_xlabel("xavg (mm)")
     ax.set_ylabel("counts")
     ax.set_title("XAvg From Python!")

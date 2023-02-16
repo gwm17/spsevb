@@ -61,7 +61,7 @@ class Cut2D:
         return Series(values=self.path.contains_points(columns.to_list()))
 
     def get_vertices(self) -> np.ndarray:
-        self.path.vertices
+        return self.path.vertices
 
     def to_json_str(self) -> str:
         return json.dumps(self, default=lambda obj: {"name": obj.name, "vertices": obj.path.vertices.tolist()} )
