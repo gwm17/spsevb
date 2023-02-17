@@ -3,6 +3,16 @@ from numpy.typing import NDArray
 from dataclasses import dataclass
 from typing import Optional
 
+#Utility functions
+def clamp_low(x: float, edge: float) -> float:
+    return x if x > edge else edge
+
+def clamp_hi(x: float, edge: float) -> float:
+    return x if x < edge else edge
+
+def clamp_range(xrange: tuple[float, float], min_max: tuple[float, float]):
+    return (clamp_low(xrange[0], min_max[0]), clamp_hi(xrange[1], min_max[1]))
+
 """
 Hist1D, Hist2D
 Dataclasses storing histogram data (name, counts per bin, bin edges)
@@ -19,6 +29,25 @@ class Hist1D:
     name: str
     counts: NDArray[np.float64]
     bins: NDArray[np.float64]
+
+    def get_bin(self, x: float) -> Optional[float]:
+        if x < self.bins.min() and x > self.bins.max():
+            return None
+        
+        for i in range(len(self.counts)):
+            if x >= self.bins[i] and x < self.bins[i+1]:
+                return i
+        return None
+
+    def integrate(self, xrange: tuple[float, float]) -> Optional[float]:
+        clamped_range = clamp_range(xrange, (self.bins.min(), self.bins.max()))
+        bin_min = self.get_bin(clamped_range[0])
+        bin_max = self.get_bin(clamped_range[1])
+        if bin_min is None or bin_max is None:
+            return None
+        
+        return np.sum(self.counts[bin_min:(bin_max + 1)])
+
 
 @dataclass
 class Hist2D:

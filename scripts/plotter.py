@@ -29,7 +29,6 @@ def get_dataframe(run_num: int) -> Optional[polars.DataFrame]:
 
 #Example plotter making an xavg histogram with an ede gate
 def plot(run_min: int, run_max: int):
-    #df = merge_runs_to_dataframe(run_min, run_max)
     ede_cut = load_cut_json("ede_cut.json")
     if ede_cut is None:
         print("blerk, cut invalid couldn't plot")
@@ -42,13 +41,8 @@ def plot(run_min: int, run_max: int):
         df = get_dataframe(run)
         df_ede = df.filter(polars.col("ScintLeftEnergy").arr.concat("AnodeBackEnergy").map(ede_cut.is_cols_inside))
         grammer.fill_hist1d("xavg", df_ede.select("Xavg").to_numpy())
-    #Notes on filtering with cuts: You have to concat the two columns and then map them with the cut function
-    #df_ede = df.filter(polars.col("ScintLeftEnergy").arr.concat("AnodeBackEnergy").map(ede_cut.is_cols_inside))
-
-    #xavg = df_ede.select("Xavg").to_numpy()
 
     fig, ax = pyplot.subplots(1,1)
-    #ax.hist(xavg, bins=300, range=(-300.0, 300.0))
     hist = grammer.get_hist1d("xavg")
     ax.stairs(hist.counts, hist.bins)
     ax.set_xlabel("xavg (mm)")
@@ -73,6 +67,6 @@ def draw_ede_cut():
     handler.cuts["cut_0"].name = "ede_cut"
     write_cut_json(handler.cuts["cut_0"], "ede_cut.json")
 
-plot(139, 163)
-#draw_ede_cut()
+#plot(139, 163)
+draw_ede_cut()
 
