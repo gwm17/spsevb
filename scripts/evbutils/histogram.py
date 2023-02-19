@@ -39,15 +39,18 @@ class Hist1D:
                 return i
         return None
 
-    def integrate(self, xrange: tuple[float, float]) -> Optional[float]:
+    #returns (integral, mean, std_dev)
+    def stats_for_range(self, xrange: tuple[float, float]) -> Optional[tuple[float, float, float]]:
         clamped_range = clamp_range(xrange, (self.bins.min(), self.bins.max()))
         bin_min = self.get_bin(clamped_range[0])
         bin_max = self.get_bin(clamped_range[1])
         if bin_min is None or bin_max is None:
             return None
-        
-        return np.sum(self.counts[bin_min:(bin_max + 1)])
 
+        integral = np.sum(self.counts[bin_min:(bin_max+1)])
+        mean = np.average(self.bins[bin_min:(bin_max + 1)], weights=self.counts[bin_min:{bin_max+1}])
+        variance = np.average(self.bins[bin_min:(bin_max+1)] - mean, weights=self.counts[bin_min:(bin_max+1)])
+        return (integral, mean, np.sqrt(variance))
 
 @dataclass
 class Hist2D:
