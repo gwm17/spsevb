@@ -36,18 +36,26 @@ def plot(run_min: int, run_max: int):
 
     grammer = Histogrammer()
     grammer.add_hist1d("xavg", 600, (-300.0, 300.0))
+    grammer.add_hist2d("ede", (512, 512), ((0.0, 4096.0), (0.0, 4096.0)))
 
     for run in range(run_min, run_max+1):
         df = get_dataframe(run)
+        if df is None:
+            continue
         df_ede = df.filter(polars.col("ScintLeftEnergy").arr.concat("AnodeBackEnergy").map(ede_cut.is_cols_inside))
         grammer.fill_hist1d("xavg", df_ede.select("Xavg").to_numpy())
+        grammer.fill_hist2d("ede", df_ede.select("ScintLeftEnergy").to_numpy(), df_ede.select("AnodeBackEnergy").to_numpy())
 
-    fig, ax = pyplot.subplots(1,1)
-    hist = grammer.get_hist1d("xavg")
-    ax.stairs(hist.counts, hist.bins)
-    ax.set_xlabel("xavg (mm)")
-    ax.set_ylabel("counts")
-    ax.set_title("XAvg From Python!")
+    fig, ax = pyplot.subplots(1,2)
+    fig.suptitle("SPS in Python")
+    grammer.draw_hist1d("xavg", ax[0])
+    grammer.draw_hist2d("ede", ax[1])
+    ax[0].set_xlabel("xavg (mm)")
+    ax[0].set_ylabel("counts")
+    ax[0].set_title("XAvg From Python!")
+    ax[1].set_xlabel("Scint Left")
+    ax[1].set_ylabel("Anode Back")
+    ax[1].set_title("E-dE")
     pyplot.show()
 
 #Example of scripted cut generation. You have to close the plot window to save the cut
@@ -67,6 +75,6 @@ def draw_ede_cut():
     handler.cuts["cut_0"].name = "ede_cut"
     write_cut_json(handler.cuts["cut_0"], "ede_cut.json")
 
-#plot(139, 163)
-draw_ede_cut()
+plot(139, 140)
+#draw_ede_cut()
 
