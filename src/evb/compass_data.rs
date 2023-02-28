@@ -26,7 +26,7 @@ pub struct RawCompassData {
 pub const fn generate_board_channel_uuid(board: &u32, channel: &u32) -> u32 {
     let b = *board;
     let c = *channel;
-    if b > c { b * b + b + c } else { c * c + b }
+    if b >= c { b * b + b + c } else { c * c + b }
 }
 
 #[allow(dead_code)]
