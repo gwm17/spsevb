@@ -60,7 +60,7 @@ def plot(run_min: int, run_max: int):
 
 #Example of scripted cut generation. You have to close the plot window to save the cut
 def draw_ede_cut():
-    df = polars.read_parquet("/media/data/gwm17/spsevb_test/built/run_139.parquet")
+    df = polars.read_parquet("/media/data/gwm17/spsevb_test/built/run_184.parquet")
     handler = CutHandler()
     fig, ax = pyplot.subplots(1,1)
 
@@ -75,6 +75,6 @@ def draw_ede_cut():
     handler.cuts["cut_0"].name = "ede_cut"
     write_cut_json(handler.cuts["cut_0"], "ede_cut.json")
 
-plot(139, 140)
-#draw_ede_cut()
-
+if __name__ == "__main__":
+    plot(184, 184)
+    #draw_ede_cut()
