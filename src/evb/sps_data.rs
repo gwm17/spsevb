@@ -1,4 +1,5 @@
-use super::compass_data::CompassData;
+#[allow(unused_imports)]
+use super::compass_data::{CompassData, decompose_uuid_to_board_channel};
 use super::channel_map::{ChannelMap, SPSChannelType};
 
 use std::collections::HashMap;
