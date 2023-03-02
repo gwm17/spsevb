@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 use std::fs::File;
 use std::path::{PathBuf, Path};
-use std::mem::size_of;
 
 use flate2::read::GzDecoder;
 use polars::prelude::*;
@@ -18,8 +17,8 @@ use super::error::EVBError;
 use super::nuclear_data::MassMap;
 use super::kinematics::{KineParameters, calculate_weights};
 
-//Maximum allowed size for a single file: 8GB
-const MAX_FILE_SIZE: usize = 8_000_000_000;
+//Maximum allowed size for a single buffer: 8GB
+const MAX_BUFFER_SIZE: usize = 8_000_000_000;
 
 #[derive(Debug)]
 struct RunParams<'a> {
@@ -172,8 +171,9 @@ fn process_run(params: RunParams, k_params: &KineParameters, progress: Arc<Mutex
                 analyzed_data.push(data);
 
                 //Check to see if we need to fragment
-                if analyzed_data.len() * size_of::<SPSData>() >  MAX_FILE_SIZE {
+                if analyzed_data.len() * SPSData::size() >  MAX_BUFFER_SIZE {
                     write_dataframe_fragment(analyzed_data, params.output_file_path.parent().unwrap(), &params.run_number, &frag_number)?;
+                    //allocate new vector
                     analyzed_data = vec![];
                     frag_number += 1;
                 }

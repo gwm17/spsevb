@@ -183,4 +183,8 @@ impl SPSData {
     pub fn fields(&self) -> &HashMap<SPSDataField, f64> {
         &self.fields
     }
+
+    pub fn size() -> usize {
+        SPSDataField::get_field_vec().len() * (std::mem::size_of::<f64>() + std::mem::size_of::<SPSDataField>())
+    }
 }

@@ -58,12 +58,11 @@ In spsevb, nuclei are specified by Z, A. The residual is calculated from the oth
 
 The Set button of the kinematics section should be renamed. It does not set values, merely sets the reaction equation.
 
-### Memory Usage and Max File size
+### Memory Usage and Max Buffer Size
 
-Once data is event built, it is stored in a map like structure which is stored on the heap until converted to a dataframe and written to disk. This does mean that spsevb will need to store the entire dataset
-in memory until it is written to disk. In general this is a benefit; all file writing occurs at once, which allows the event building to proceed as quickly as possible. However, this can mean that once progress has reached 100%, the progress may "freeze" for a second before allowing a new run command, as writing data to disk can take some time.
+Once data is event built, it is stored in a map like structure which is stored on the heap until converted to a dataframe and written to disk. This does mean that spsevb will need to store the entire dataset in memory (a buffer) until it is written to disk. In general this is a benefit; all file writing occurs at once, which allows the event building to proceed as quickly as possible. However, this can mean that once progress has reached 100%, the progress may "freeze" for a second before allowing a new run command, as writing data to disk can take some time.
 
-As a precaution against extremely large single run datasets, spsevb has a limit on the maximum size of a write-out as 8GB by default. Once the limit is reached, spsevb will stop event building, convert the data and write to disk, and then resume event building. When this fragmentation happens, the spsevb will append a fragment number to the output file name (i.e. `run_<run_num>_<frag_num>.parquet`). These fragment files can be combined later if needed (though in general this is not recommended). Most SPS experiments should never reach this limit, but it is a necessary precaution. This limit may need to be adjusted depending on the hardware used (the max file size should not exceed system memory).
+As a precaution against extremely large single run datasets, spsevb has a limit on the maximum size of a buffer as 8GB by default. Once the limit is reached, spsevb will stop event building, convert the data and write to disk, and then resume event building. When this fragmentation happens, the spsevb will append a fragment number to the output file name (i.e. `run_<run_num>_<frag_num>.parquet`). These fragment files can be combined later if needed (though in general this is not recommended). Most SPS experiments should never reach this limit, but it is a necessary precaution. This limit may need to be adjusted depending on the hardware used (the max buffer size should not exceed system memory).
 
 Currently max file size is defined in `src/evb/compass_run.rs` as a constant. Eventually this will be promoted to an user input in the GUI.
 
