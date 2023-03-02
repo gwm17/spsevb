@@ -34,7 +34,7 @@ Some important overarching notes:
 
 ### Event building and the Coincidence Window
 
-The core of event building revolves around the idea of a coincidence window. The coincidence window defines the length of time for which, after an initial detector hit, other detector hits are considered to have come from the same physics event. For spsevb, this is defined by a single user-defined value in nanoseconds, held constant for the entire event building process. spsevb uses an event building architecture similar to the [BoxScore](https://www.sciencedirect.com/science/article/abs/pii/S0168900222001954) model. The main difference is the inital sorting process: rather that using software sorting on arbitrarily sorted data, spsevb relies on the knowledge that CoMPASS saves data from each individual channel in each digitizer to its own file, and that the data in these files is already sorted in time. In a sense, CoMPASS has already done the hard work by pre-sorting so much of the data. This way, spsevb never needs to sort large data buffers, and can run a very basic modified insertion sort efficiently by merely sorting the earliest hit in time from each binary file.
+The core of event building revolves around the idea of a coincidence window. The coincidence window defines the length of time for which, after an initial detector hit, other detector hits are considered to have come from the same physics event. For spsevb, this is defined by a single user-defined value in nanoseconds, held constant for the entire event building process. spsevb uses an event building architecture similar to the [BoxScore](https://www.sciencedirect.com/science/article/abs/pii/S0168900222001954) model. The main difference is the inital sorting process: rather that using software sorting on arbitrarily buffered data, spsevb relies on the knowledge that CoMPASS saves data from each individual channel in each digitizer to its own file, and that the data in these files is already sorted in time. In a sense, CoMPASS has already done the hard work by pre-sorting so much of the data. This way, spsevb never needs to sort large data buffers, and can run a very basic modified insertion sort efficiently by merely sorting the earliest hit in time from each binary file.
 
 A typical default value for the coincidence window is 3000 ns.
 
@@ -57,6 +57,15 @@ In brief, a first order correction to kinematic broadening of states can be done
 In spsevb, nuclei are specified by Z, A. The residual is calculated from the other nuclei. Beam kinetic energy is given in MeV, angle in degrees, and magnetic field in kG (Tesla). Nuclear data is retrieved from the [AMDC](https://www-nds.iaea.org/amdc/) 2016 mass file distributed with the repository. Since the program has the path to the AMDC file hardcoded, always run from the top level of the repository.
 
 The Set button of the kinematics section should be renamed. It does not set values, merely sets the reaction equation.
+
+### Memory Usage and Max File size
+
+Once data is event built, it is stored in a map like structure which is stored on the heap until converted to a dataframe and written to disk. This does mean that spsevb will need to store the entire dataset
+in memory until it is written to disk. In general this is a benefit; all file writing occurs at once, which allows the event building to proceed as quickly as possible. However, this can mean that once progress has reached 100%, the progress may "freeze" for a second before allowing a new run command, as writing data to disk can take some time.
+
+As a precaution against extremely large single run datasets, spsevb has a limit on the maximum size of a write-out as 8GB by default. Once the limit is reached, spsevb will stop event building, convert the data and write to disk, and then resume event building. When this fragmentation happens, the spsevb will append a fragment number to the output file name (i.e. `run_<run_num>_<frag_num>.parquet`). These fragment files can be combined later if needed (though in general this is not recommended). Most SPS experiments should never reach this limit, but it is a necessary precaution. This limit may need to be adjusted depending on the hardware used (the max file size should not exceed system memory).
+
+Currently max file size is defined in `src/evb/compass_run.rs` as a constant. Eventually this will be promoted to an user input in the GUI.
 
 ### Configuration saving
 

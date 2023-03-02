@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::fs::File;
 use std::path::{PathBuf, Path};
+use std::mem::size_of;
 
 use flate2::read::GzDecoder;
 use polars::prelude::*;
@@ -17,6 +18,9 @@ use super::error::EVBError;
 use super::nuclear_data::MassMap;
 use super::kinematics::{KineParameters, calculate_weights};
 
+//Maximum allowed size for a single file: 8GB
+const MAX_FILE_SIZE: usize = 8_000_000_000;
+
 #[derive(Debug)]
 struct RunParams<'a> {
     pub run_archive_path: PathBuf,
@@ -28,6 +32,7 @@ struct RunParams<'a> {
     pub channel_map: &'a ChannelMap,
     pub shift_map: &'a Option<ShiftMap>,
     pub coincidence_window: f64,
+    pub run_number: i32
 }
 
 fn clean_up_unpack_dir(unpack_dir: &Path) -> Result<(), EVBError> {
@@ -43,7 +48,7 @@ fn clean_up_unpack_dir(unpack_dir: &Path) -> Result<(), EVBError> {
     Ok(())
 }
 
-fn make_dataframe(data: Vec<SPSData>) -> Result<DataFrame, PolarsError> {
+fn write_dataframe(data: Vec<SPSData>, filepath: &Path) -> Result<(), PolarsError> {
     let fields = SPSDataField::get_field_vec();
     //use BTreeMap to enforce order of columns (allows for appending dataframes)
     let mut column_map: BTreeMap<SPSDataField, PrimitiveChunkedBuilder<Float64Type>> = fields
@@ -70,10 +75,21 @@ fn make_dataframe(data: Vec<SPSData>) -> Result<DataFrame, PolarsError> {
         .map(|f| -> Series { f.1.finish().into() })
         .collect();
 
-    DataFrame::new(columns)
+    let mut df = DataFrame::new(columns)?;
+    let mut output_file = File::create(filepath)?;
+    ParquetWriter::new(&mut output_file).finish(&mut df)?;
+    Ok(())
 }
 
+fn write_dataframe_fragment(data: Vec<SPSData>, out_dir: &Path, run_number: &i32, frag_number: &i32) -> Result<(), PolarsError> {
+    let frag_file_path = out_dir.join(format!("run_{}_{}.parquet", run_number, frag_number));
+    write_dataframe(data, &frag_file_path)?;
+    Ok(())
+}
+
+//Main function which processes a single run archive and writes the resulting event built data to parquet file
 fn process_run(params: RunParams, k_params: &KineParameters, progress: Arc<Mutex<f32>>) -> Result<(), EVBError> {
+    //Protective, ensure no loose files
     clean_up_unpack_dir(&params.unpack_dir_path)?;
 
     let archive_file = File::open(&params.run_archive_path)?;
@@ -85,6 +101,7 @@ fn process_run(params: RunParams, k_params: &KineParameters, progress: Arc<Mutex
         None => None
     };
 
+    //Collect all files from unpack, separate scalers from normal files
     let mut files: Vec<CompassFile> = vec![];
     let mut total_count: u64 = 0;
     for item in params.unpack_dir_path.read_dir()? {
@@ -115,7 +132,10 @@ fn process_run(params: RunParams, k_params: &KineParameters, progress: Arc<Mutex
     let flush_percent = 0.1;
     let flush_val: u64 = ((total_count as f64) * flush_percent) as u64;
 
+    let mut frag_number = 0;
+
     loop {
+        //Bulk of the work ... look for the earliest hit in the file collection
         earliest_file_index = Option::None;
         for i in 0..files.len() {
             if !files[i].is_eof() {
@@ -138,8 +158,8 @@ fn process_run(params: RunParams, k_params: &KineParameters, progress: Arc<Mutex
         }
 
         match earliest_file_index {
-            None => break, //This is how we exit
-            Some(i) => {
+            None => break, //This is how we exit, no more hits to be found
+            Some(i) => { //else we pop the earliest hit off to the event builder
                 let hit = files[i].get_top_hit()?;
                 evb.push_hit(hit);
                 files[i].set_hit_used();
@@ -150,9 +170,17 @@ fn process_run(params: RunParams, k_params: &KineParameters, progress: Arc<Mutex
             let data = SPSData::new(evb.get_ready_event(), params.channel_map, x_weights);
             if !data.is_default() {
                 analyzed_data.push(data);
+
+                //Check to see if we need to fragment
+                if analyzed_data.len() * size_of::<SPSData>() >  MAX_FILE_SIZE {
+                    write_dataframe_fragment(analyzed_data, params.output_file_path.parent().unwrap(), &params.run_number, &frag_number)?;
+                    analyzed_data = vec![];
+                    frag_number += 1;
+                }
             }
         }
 
+        //Progress report
         count += 1;
         if count == flush_val {
             flush_count += 1;
@@ -165,9 +193,11 @@ fn process_run(params: RunParams, k_params: &KineParameters, progress: Arc<Mutex
         }
     }
 
-    let mut df = make_dataframe(analyzed_data)?;
-    let mut output_file = File::create(&params.output_file_path)?;
-    ParquetWriter::new(&mut output_file).finish(&mut df)?;
+    if frag_number == 0 {
+        write_dataframe(analyzed_data, &params.output_file_path)?;
+    } else {
+        write_dataframe_fragment(analyzed_data, params.output_file_path.parent().unwrap(), &params.run_number, &frag_number)?;
+    }
     match scaler_list {
         Some(list) => list.write_scalers(&params.scalerout_file_path)?,
         None => ()
@@ -193,6 +223,7 @@ pub struct ProcessParams {
     pub run_max: i32
 }
 
+//Function which handles processing multiple runs, this is what the UI actually calls
 pub fn process_runs(params: ProcessParams, k_params: KineParameters, progress: Arc<Mutex<f32>>) -> Result<(), EVBError> {
     let channel_map = ChannelMap::new(&params.channel_map_filepath)?;
     let mass_map = MassMap::new()?;
@@ -210,7 +241,8 @@ pub fn process_runs(params: ProcessParams, k_params: KineParameters, progress: A
             nuc_map: &mass_map,
             channel_map: &channel_map,
             shift_map: &shift_map,
-            coincidence_window: params.coincidence_window.clone()
+            coincidence_window: params.coincidence_window.clone(),
+            run_number: run.clone()
         };
 
         match progress.lock() {
@@ -218,6 +250,7 @@ pub fn process_runs(params: ProcessParams, k_params: KineParameters, progress: A
             Err(_) => return Err(EVBError::SyncError)
         };
 
+        //Skip over run if it doesnt exist
         if local_params.run_archive_path.exists() {
             process_run(local_params, &k_params, progress.clone())?;
         }
