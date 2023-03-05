@@ -78,7 +78,11 @@ impl SPSData {
         
         for hit in event.iter() {
             //Fill out detector fields using channel map
-            match map.get_data_field(&hit.uuid) {
+            let channel_data = match map.get_channel_data(&hit.uuid) {
+                Some(data) => data,
+                None => continue
+            };
+            match channel_data.channel_type {
                 SPSChannelType::ScintLeft => {
                     data.fields.insert(SPSDataField::ScintLeftEnergy, hit.energy);
                     data.fields.insert(SPSDataField::ScintLeftShort, hit.energy_short);
