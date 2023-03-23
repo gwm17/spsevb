@@ -249,7 +249,7 @@ impl App for EVBApp {
                                  .show_open_single_file();
                     match result {
                         Ok(path) => match path {
-                            Some(real_path) => self.parameters.scaler_list = Some(real_path),
+                            Some(real_path) => self.parameters.shift_map = Some(real_path),
                             None => ()
                         }
                         Err(_) => error!("File dialog error!")
