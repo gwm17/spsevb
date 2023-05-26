@@ -180,7 +180,7 @@ impl SPSData {
             self.push_value(&SPSDataField::X2, x2);
         }
         if x1 != INVALID_VALUE && x2 != INVALID_VALUE {
-            let diff = x1 -x2;
+            let diff = x2 -x1;
             if diff > 0.0 {
                 self.push_value(&SPSDataField::Theta, (diff/36.0).atan());
             } else if diff < 0.0 {
