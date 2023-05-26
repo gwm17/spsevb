@@ -58,7 +58,7 @@ impl SPSDataField {
 pub struct SPSData {
     //Columns must always come in same order, so use sorted map
     pub fields: BTreeMap<SPSDataField, Vec<f64>>,
-    rows: usize
+    pub rows: usize
 }
 
 impl Default for SPSData {
@@ -82,7 +82,7 @@ impl SPSData {
     }
 
     //Update the last element to the given value
-    fn push_value(&mut self, field: &SPSDataField, value: f64) {
+    fn set_value(&mut self, field: &SPSDataField, value: f64) {
         if let Some(list) = self.fields.get_mut(field) {
             if let Some(back) = list.last_mut() {
                 *back = value;
@@ -93,6 +93,8 @@ impl SPSData {
     pub fn append_event(&mut self, event: Vec<CompassData>, map: &ChannelMap, weights: Option<(f64, f64)>) {
 
         self.rows += 1;
+        self.push_defaults();
+
 
         let mut dfl_time = INVALID_VALUE;
         let mut dfr_time = INVALID_VALUE;
@@ -107,63 +109,62 @@ impl SPSData {
             };
             match channel_data.channel_type {
                 SPSChannelType::ScintLeft => {
-                    self.push_value(&SPSDataField::ScintLeftEnergy, hit.energy);
-                    self.push_value(&SPSDataField::ScintLeftShort, hit.energy_short);
-                    self.push_value(&SPSDataField::ScintLeftTime, hit.timestamp);
+                    self.set_value(&SPSDataField::ScintLeftEnergy, hit.energy);
+                    self.set_value(&SPSDataField::ScintLeftShort, hit.energy_short);
+                    self.set_value(&SPSDataField::ScintLeftTime, hit.timestamp);
                 }
 
                 SPSChannelType::ScintRight => {
-                    self.push_value(&SPSDataField::ScintRightEnergy, hit.energy);
-                    self.push_value(&SPSDataField::ScintRightShort, hit.energy_short);
-                    self.push_value(&SPSDataField::ScintRightTime, hit.timestamp);
+                    self.set_value(&SPSDataField::ScintRightEnergy, hit.energy);
+                    self.set_value(&SPSDataField::ScintRightShort, hit.energy_short);
+                    self.set_value(&SPSDataField::ScintRightTime, hit.timestamp);
                 }
 
                 SPSChannelType::Cathode => {
-                    self.push_value(&SPSDataField::CathodeEnergy, hit.energy);
-                    self.push_value(&SPSDataField::CathodeShort, hit.energy_short);
-                    self.push_value(&SPSDataField::CathodeTime, hit.timestamp);
+                    self.set_value(&SPSDataField::CathodeEnergy, hit.energy);
+                    self.set_value(&SPSDataField::CathodeShort, hit.energy_short);
+                    self.set_value(&SPSDataField::CathodeTime, hit.timestamp);
                 }
 
                 SPSChannelType::DelayFrontRight => {
-                    self.push_value(&SPSDataField::DelayFrontRightEnergy, hit.energy);
-                    self.push_value(&SPSDataField::DelayFrontRightShort, hit.energy_short);
-                    self.push_value(&SPSDataField::DelayFrontRightTime, hit.timestamp);
+                    self.set_value(&SPSDataField::DelayFrontRightEnergy, hit.energy);
+                    self.set_value(&SPSDataField::DelayFrontRightShort, hit.energy_short);
+                    self.set_value(&SPSDataField::DelayFrontRightTime, hit.timestamp);
                     dfr_time = hit.timestamp;
                 }
 
                 SPSChannelType::DelayFrontLeft => {
-                    self.push_value(&SPSDataField::DelayFrontLeftEnergy, hit.energy);
-                    self.push_value(&SPSDataField::DelayFrontLeftShort, hit.energy_short);
-                    self.push_value(&SPSDataField::DelayFrontLeftTime, hit.timestamp);
+                    self.set_value(&SPSDataField::DelayFrontLeftEnergy, hit.energy);
+                    self.set_value(&SPSDataField::DelayFrontLeftShort, hit.energy_short);
+                    self.set_value(&SPSDataField::DelayFrontLeftTime, hit.timestamp);
                     dfl_time = hit.timestamp;
                 }
 
                 SPSChannelType::DelayBackRight => {
-                    self.push_value(&SPSDataField::DelayBackRightEnergy, hit.energy);
-                    self.push_value(&SPSDataField::DelayBackRightShort, hit.energy_short);
-                    self.push_value(&SPSDataField::DelayBackRightTime, hit.timestamp);
+                    self.set_value(&SPSDataField::DelayBackRightEnergy, hit.energy);
+                    self.set_value(&SPSDataField::DelayBackRightShort, hit.energy_short);
+                    self.set_value(&SPSDataField::DelayBackRightTime, hit.timestamp);
                     dbr_time = hit.timestamp;
                 }
 
                 SPSChannelType::DelayBackLeft => {
-                    self.push_value(&SPSDataField::DelayBackLeftEnergy, hit.energy);
-                    self.push_value(&SPSDataField::DelayBackLeftShort, hit.energy_short);
-                    self.push_value(&SPSDataField::DelayBackLeftTime, hit.timestamp);
+                    self.set_value(&SPSDataField::DelayBackLeftEnergy, hit.energy);
+                    self.set_value(&SPSDataField::DelayBackLeftShort, hit.energy_short);
+                    self.set_value(&SPSDataField::DelayBackLeftTime, hit.timestamp);
                     dbl_time = hit.timestamp;
                 }
 
                 SPSChannelType::AnodeFront => {
-                    self.push_value(&SPSDataField::AnodeFrontEnergy, hit.energy);
-                    self.push_value(&SPSDataField::AnodeFrontShort, hit.energy_short);
-                    self.push_value(&SPSDataField::AnodeFrontTime, hit.timestamp);
+                    self.set_value(&SPSDataField::AnodeFrontEnergy, hit.energy);
+                    self.set_value(&SPSDataField::AnodeFrontShort, hit.energy_short);
+                    self.set_value(&SPSDataField::AnodeFrontTime, hit.timestamp);
                 }
 
                 SPSChannelType::AnodeBack => {
-                    self.push_value(&SPSDataField::AnodeBackEnergy, hit.energy);
-                    self.push_value(&SPSDataField::AnodeBackShort, hit.energy_short);
-                    self.push_value(&SPSDataField::AnodeBackTime, hit.timestamp);
+                    self.set_value(&SPSDataField::AnodeBackEnergy, hit.energy);
+                    self.set_value(&SPSDataField::AnodeBackShort, hit.energy_short);
+                    self.set_value(&SPSDataField::AnodeBackTime, hit.timestamp);
                 }
-
                 _ =>  continue
             }
         }
@@ -173,29 +174,28 @@ impl SPSData {
         let mut x2 = INVALID_VALUE;
         if dfr_time != INVALID_VALUE && dfl_time != INVALID_VALUE {
             x1 = (dfl_time - dfr_time) * 0.5 * 1.0/2.1;
-            self.push_value(&SPSDataField::X1, x1);
+            self.set_value(&SPSDataField::X1, x1);
         }
         if dbr_time != INVALID_VALUE && dbl_time != INVALID_VALUE {
             x2 = (dbl_time - dbr_time) * 0.5 * 1.0/1.98;
-            self.push_value(&SPSDataField::X2, x2);
+            self.set_value(&SPSDataField::X2, x2);
         }
         if x1 != INVALID_VALUE && x2 != INVALID_VALUE {
             let diff = x2 -x1;
             if diff > 0.0 {
-                self.push_value(&SPSDataField::Theta, (diff/36.0).atan());
+                self.set_value(&SPSDataField::Theta, (diff/36.0).atan());
             } else if diff < 0.0 {
-                self.push_value(&SPSDataField::Theta, std::f64::consts::PI + (diff/36.0).atan());
+                self.set_value(&SPSDataField::Theta, std::f64::consts::PI + (diff/36.0).atan());
             } else {
-                self.push_value(&SPSDataField::Theta, std::f64::consts::PI * 0.5);
+                self.set_value(&SPSDataField::Theta, std::f64::consts::PI * 0.5);
             }
 
             match weights {
-               Some(w) => self.push_value(&SPSDataField::Xavg, w.0 * x1 + w.1 * x2),
-               None => self.push_value(&SPSDataField::Xavg, INVALID_VALUE)
+               Some(w) => self.set_value(&SPSDataField::Xavg, w.0 * x1 + w.1 * x2),
+               None => self.set_value(&SPSDataField::Xavg, INVALID_VALUE)
             };
         }
 
-        self.push_defaults();
     }
 
     pub fn convert_to_series(self) -> Vec<Series> {
