@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::fs::File;
 use std::path::{PathBuf, Path};
 
@@ -12,7 +11,7 @@ use super::scaler_list::ScalerList;
 use super::shift_map::ShiftMap;
 use super::compass_file::CompassFile;
 use super::event_builder::EventBuilder;
-use super::sps_data::{SPSData, SPSDataField};
+use super::sps_data::SPSData;
 use super::error::EVBError;
 use super::nuclear_data::MassMap;
 use super::kinematics::{KineParameters, calculate_weights};
@@ -47,40 +46,15 @@ fn clean_up_unpack_dir(unpack_dir: &Path) -> Result<(), EVBError> {
     Ok(())
 }
 
-fn write_dataframe(data: Vec<SPSData>, filepath: &Path) -> Result<(), PolarsError> {
-    let fields = SPSDataField::get_field_vec();
-    //use BTreeMap to enforce order of columns (allows for appending dataframes)
-    let mut column_map: BTreeMap<SPSDataField, PrimitiveChunkedBuilder<Float64Type>> = fields
-        .into_iter()
-        .map(
-            |f| -> (SPSDataField, PrimitiveChunkedBuilder<Float64Type>) {
-                (
-                    f.clone(),
-                    PrimitiveChunkedBuilder::<Float64Type>::new(f.as_ref(), data.len()),
-                )
-            },
-        )
-        .collect();
-
-    for datum in data {
-        datum
-            .fields()
-            .into_iter()
-            .for_each(|f| column_map.get_mut(f.0).unwrap().append_value(*f.1))
-    }
-
-    let columns: Vec<Series> = column_map
-        .into_iter()
-        .map(|f| -> Series { f.1.finish().into() })
-        .collect();
-
+fn write_dataframe(data: SPSData, filepath: &Path) -> Result<(), PolarsError> {
+    let columns : Vec<Series> = data.convert_to_series();
     let mut df = DataFrame::new(columns)?;
     let mut output_file = File::create(filepath)?;
     ParquetWriter::new(&mut output_file).finish(&mut df)?;
     Ok(())
 }
 
-fn write_dataframe_fragment(data: Vec<SPSData>, out_dir: &Path, run_number: &i32, frag_number: &i32) -> Result<(), PolarsError> {
+fn write_dataframe_fragment(data: SPSData, out_dir: &Path, run_number: &i32, frag_number: &i32) -> Result<(), PolarsError> {
     let frag_file_path = out_dir.join(format!("run_{}_{}.parquet", run_number, frag_number));
     write_dataframe(data, &frag_file_path)?;
     Ok(())
@@ -121,10 +95,10 @@ fn process_run(params: RunParams, k_params: &KineParameters, progress: Arc<Mutex
     }
 
     let mut evb = EventBuilder::new(&params.coincidence_window);
+    let mut analyzed_data = SPSData::default();
     let x_weights = calculate_weights(&k_params, params.nuc_map);
 
     let mut earliest_file_index: Option<usize>;
-    let mut analyzed_data: Vec<SPSData> = vec![];
 
     let mut count: u64 = 0;
     let mut flush_count: u64 = 0;
@@ -166,17 +140,13 @@ fn process_run(params: RunParams, k_params: &KineParameters, progress: Arc<Mutex
         }
 
         if evb.is_event_ready() {
-            let data = SPSData::new(evb.get_ready_event(), params.channel_map, x_weights);
-            if !data.is_default() {
-                analyzed_data.push(data);
-
-                //Check to see if we need to fragment
-                if analyzed_data.len() * SPSData::size() >  MAX_BUFFER_SIZE {
-                    write_dataframe_fragment(analyzed_data, params.output_file_path.parent().unwrap(), &params.run_number, &frag_number)?;
-                    //allocate new vector
-                    analyzed_data = vec![];
-                    frag_number += 1;
-                }
+            analyzed_data.append_event(evb.get_ready_event(), params.channel_map, x_weights);
+            //Check to see if we need to fragment
+            if analyzed_data.size() >  MAX_BUFFER_SIZE {
+                write_dataframe_fragment(analyzed_data, params.output_file_path.parent().unwrap(), &params.run_number, &frag_number)?;
+                //allocate new vector
+                analyzed_data = SPSData::default();
+                frag_number += 1;
             }
         }
 
