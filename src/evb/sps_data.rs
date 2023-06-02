@@ -1,6 +1,8 @@
+use crate::evb::sabre_fields::SabreSubField;
+
 #[allow(unused_imports)]
 use super::compass_data::{CompassData, decompose_uuid_to_board_channel};
-use super::channel_map::{ChannelMap, SPSChannelType};
+use super::{channel_map::{ChannelMap, SPSChannelType}, sabre_fields::SabreField, sabre_fields::SabreData};
 
 use std::collections::BTreeMap;
 use std::hash::Hash;
@@ -58,14 +60,17 @@ impl SPSDataField {
 pub struct SPSData {
     //Columns must always come in same order, so use sorted map
     pub fields: BTreeMap<SPSDataField, Vec<f64>>,
+    pub sabre: BTreeMap<SabreField, Vec<SabreData>>,
     pub rows: usize
 }
 
 impl Default for SPSData {
     fn default() -> Self {
         let fields = SPSDataField::get_field_vec();
-        let mut data = SPSData { fields: BTreeMap::new(), rows: 0 };
+        let sabre_fields = SabreField::get_field_vec();
+        let mut data = SPSData { fields: BTreeMap::new(), sabre: BTreeMap::new(), rows: 0 };
         fields.into_iter().for_each(|f| { data.fields.insert(f, vec![]); });
+        sabre_fields.into_iter().for_each(|f| { data.sabre.insert(f, vec![]); });
         return data;
     }
 }
@@ -79,6 +84,12 @@ impl SPSData {
                 field.1.push(INVALID_VALUE)
             }
         }
+
+        for field in self.sabre.iter_mut() {
+            if field.1.len() < self.rows {
+                field.1.push(SabreData::new())
+            }
+        }
     }
 
     //Update the last element to the given value
@@ -86,6 +97,14 @@ impl SPSData {
         if let Some(list) = self.fields.get_mut(field) {
             if let Some(back) = list.last_mut() {
                 *back = value;
+            }
+        }
+    }
+
+    fn append_sabre(&mut self, field: &SabreField, energy: f64, time: f64, channel: i32, det_id: i32) {
+        if let Some(list) = self.sabre.get_mut(field) {
+            if let Some(sublist) = list.last_mut() {
+                sublist.push(energy, time, channel, det_id)
             }
         }
     }
@@ -165,6 +184,12 @@ impl SPSData {
                     self.set_value(&SPSDataField::AnodeBackShort, hit.energy_short);
                     self.set_value(&SPSDataField::AnodeBackTime, hit.timestamp);
                 }
+                SPSChannelType::SabreRing => {
+                    self.append_sabre(&SabreField::SabreRing, hit.energy, hit.timestamp, channel_data.local_channel, channel_data.local_det_id);
+                }
+                SPSChannelType::SabreWedge => {
+                    self.append_sabre(&SabreField::SabreWedge, hit.energy, hit.timestamp, channel_data.local_channel, channel_data.local_det_id);
+                }
                 _ =>  continue
             }
         }
@@ -199,11 +224,32 @@ impl SPSData {
     }
 
     pub fn convert_to_series(self) -> Vec<Series> {
-        self.fields.into_iter()
+        let mut sps_cols: Vec<Series> = self.fields.into_iter()
                     .map(|field| -> Series {
                         Series::new(field.0.as_ref(), field.1)
                     })
-                    .collect()
+                    .collect();
+
+        let mut sabre_cols: Vec<Series>  = self.sabre.into_iter()
+                    .map(|field| -> Series {
+                        Series::new(field.0.as_ref(), &field.1.into_iter()
+                            .map(|data| -> Option<Series> {
+                                if data.len() == 0 {
+                                    return None;
+                                }
+                                Some(StructChunked::new("list", &[
+                                    Series::new(SabreSubField::Energy.as_ref(), data.energies),
+                                    Series::new(SabreSubField::Time.as_ref(), data.times),
+                                    Series::new(SabreSubField::Channel.as_ref(), data.channels),
+                                    Series::new(SabreSubField::DetID.as_ref(), data.det_ids)
+                                ]).unwrap().into_series())
+                            })
+                            .collect::<Vec<Option<Series>>>()
+                        )
+                    })
+                    .collect();
+        sps_cols.append(&mut sabre_cols);
+        return sps_cols
     }
 
     pub fn size(&self) -> usize {

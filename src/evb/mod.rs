@@ -9,3 +9,4 @@ pub mod nuclear_data;
 pub mod kinematics;
 pub mod scaler_list;
 pub mod shift_map;
+pub mod sabre_fields;
