@@ -5,7 +5,9 @@ use flate2::read::GzDecoder;
 use polars::prelude::*;
 use std::sync::{Mutex, Arc};
 use tar::Archive;
+use log::info;
 
+use super::used_size::UsedSize;
 use super::channel_map::ChannelMap;
 use super::scaler_list::ScalerList;
 use super::shift_map::ShiftMap;
@@ -16,8 +18,8 @@ use super::error::EVBError;
 use super::nuclear_data::MassMap;
 use super::kinematics::{KineParameters, calculate_weights};
 
-//Maximum allowed size for a single buffer: 8GB
-const MAX_BUFFER_SIZE: usize = 8_000_000_000;
+//Maximum allowed size for a single dataframe: 8GB
+const MAX_USED_SIZE: usize = 8_000_000_000;
 
 #[derive(Debug)]
 struct RunParams<'a> {
@@ -47,6 +49,7 @@ fn clean_up_unpack_dir(unpack_dir: &Path) -> Result<(), EVBError> {
 }
 
 fn write_dataframe(data: SPSData, filepath: &Path) -> Result<(), PolarsError> {
+    info!("Writing dataframe to disk at {}", filepath.display());
     let columns : Vec<Series> = data.convert_to_series();
     let mut df = DataFrame::new(columns)?;
     let mut output_file = File::create(filepath)?;
@@ -142,7 +145,7 @@ fn process_run(params: RunParams, k_params: &KineParameters, progress: Arc<Mutex
         if evb.is_event_ready() {
             analyzed_data.append_event(evb.get_ready_event(), params.channel_map, x_weights);
             //Check to see if we need to fragment
-            if analyzed_data.size() >  MAX_BUFFER_SIZE {
+            if analyzed_data.get_used_size() >  MAX_USED_SIZE {
                 write_dataframe_fragment(analyzed_data, params.output_file_path.parent().unwrap(), &params.run_number, &frag_number)?;
                 //allocate new vector
                 analyzed_data = SPSData::default();

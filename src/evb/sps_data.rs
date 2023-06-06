@@ -1,20 +1,19 @@
-use crate::evb::sabre_fields::SabreSubField;
-
 #[allow(unused_imports)]
 use super::compass_data::{CompassData, decompose_uuid_to_board_channel};
-use super::{channel_map::{ChannelMap, SPSChannelType}, sabre_fields::SabreField, sabre_fields::SabreData};
+use super::{channel_map::{ChannelMap, SPSChannelType}, sabre_fields::{SabreField, SabreData, SabreSubField}};
+use super::used_size::UsedSize;
 
 use std::collections::BTreeMap;
 use std::hash::Hash;
 
 use strum::IntoEnumIterator;
-use strum_macros::{EnumIter, AsRefStr};
+use strum_macros::{EnumIter, EnumCount, AsRefStr};
 
 use polars::prelude::*;
 
 const INVALID_VALUE: f64 = -1.0e6;
 
-#[derive(Debug, Clone, Hash, Eq, PartialOrd, Ord, PartialEq, EnumIter, AsRefStr)]
+#[derive(Debug, Clone, Hash, Eq, PartialOrd, Ord, PartialEq, EnumIter, EnumCount, AsRefStr)]
 pub enum SPSDataField {
     AnodeFrontEnergy,
     AnodeFrontShort,
@@ -56,6 +55,12 @@ impl SPSDataField {
     }
 }
 
+impl UsedSize for SPSDataField {
+    fn get_used_size(&self) -> usize {
+        std::mem::size_of::<SPSDataField>()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct SPSData {
     //Columns must always come in same order, so use sorted map
@@ -72,6 +77,12 @@ impl Default for SPSData {
         fields.into_iter().for_each(|f| { data.fields.insert(f, vec![]); });
         sabre_fields.into_iter().for_each(|f| { data.sabre.insert(f, vec![]); });
         return data;
+    }
+}
+
+impl UsedSize for SPSData {
+    fn get_used_size(&self) -> usize {
+        self.fields.get_used_size() + self.sabre.get_used_size()
     }
 }
 
@@ -250,9 +261,5 @@ impl SPSData {
                     .collect();
         sps_cols.append(&mut sabre_cols);
         return sps_cols
-    }
-
-    pub fn size(&self) -> usize {
-        SPSDataField::get_field_vec().len() * (std::mem::size_of::<f64>() + std::mem::size_of::<SPSDataField>()) * self.rows
     }
 }
