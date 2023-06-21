@@ -102,7 +102,7 @@ fn calculate_z_offset(params: &KineParameters, nuc_map: &MassMap) -> Option<f64>
     }
     ejectile_ke *= ejectile_ke;
 
-    let ejectile_p = (ejectile_ke * (ejectile_ke + ejectile.mass)).sqrt();
+    let ejectile_p = (ejectile_ke * (ejectile_ke + 2.0 * ejectile.mass)).sqrt();
     let rho = ejectile_p /((target.z as f64) * params.b_field * QBRHO2P);
     let val = (projectile.mass * ejectile.mass * params.projectile_ke / ejectile_ke).sqrt();
     let k = val * angle_rads.sin() / (ejectile.mass + residual.mass - val * angle_rads.cos());
