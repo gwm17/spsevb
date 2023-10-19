@@ -61,7 +61,7 @@ impl Default for NuclearData {
 }
 
 fn generate_nucleus_id(z: &u32, a: &u32) -> u32 {
-    if z > a { z * z + z + a } else { a * a + z }
+    if z >= a { z * z + z + a } else { a * a + z }
 }
 
 const U2MEV: f64 = 931.49410242;
