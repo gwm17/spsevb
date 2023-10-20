@@ -91,7 +91,7 @@ fn calculate_z_offset(params: &KineParameters, nuc_map: &MassMap) -> Option<f64>
 
     let angle_rads = params.sps_angle.to_radians();
     let q_val = target.mass + projectile.mass - ejectile.mass - residual.mass;
-    let term1 = (projectile.mass + ejectile.mass + params.projectile_ke).sqrt() / 
+    let term1 = (projectile.mass * ejectile.mass * params.projectile_ke).sqrt() / 
                      (ejectile.mass + residual.mass) * angle_rads.cos();
     let term2 = (params.projectile_ke * (residual.mass - projectile.mass) + residual.mass * q_val) /
                      (ejectile.mass + residual.mass);
@@ -103,7 +103,7 @@ fn calculate_z_offset(params: &KineParameters, nuc_map: &MassMap) -> Option<f64>
     ejectile_ke *= ejectile_ke;
 
     let ejectile_p = (ejectile_ke * (ejectile_ke + 2.0 * ejectile.mass)).sqrt();
-    let rho = ejectile_p /((target.z as f64) * params.b_field * QBRHO2P);
+    let rho = ejectile_p /((ejectile.z as f64) * params.b_field * QBRHO2P);
     let val = (projectile.mass * ejectile.mass * params.projectile_ke / ejectile_ke).sqrt();
     let k = val * angle_rads.sin() / (ejectile.mass + residual.mass - val * angle_rads.cos());
     return Some(-1.0 * rho * SPS_DISPERSION * SPS_MAGNIFICATION * k);
